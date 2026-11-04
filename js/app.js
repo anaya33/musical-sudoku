@@ -1,23 +1,48 @@
 import { generate, peers, rowOf, colOf, boxOf, rowCells, colCells, boxCells } from './sudoku.js';
-import { Audio, SCALES, INSTRUMENTS, noteLabels } from './audio.js';
+import { Audio, SYMBOLS, INSTRUMENTS, KEYS } from './audio.js';
 
-const SAVE_KEY = 'musical-sudoku-v1';
+const SAVE_KEY = 'musical-sudoku-v2';
 const $ = (id) => document.getElementById(id);
+
+// music glyphs come in very different sizes and heights, so each one is measured
+// and scaled to a target height (in em), then centred in its tile
+const TARGET = [0.92, 0.6, 0.78, 0.78, 0.78, 0.78, 0.62, 0.66, 0.42];
+let fit = TARGET.map(() => ({ s: 1, dy: 0 }));
+
+function measureGlyphs() {
+  const ctx = document.createElement('canvas').getContext('2d');
+  const size = 200;
+  ctx.font = `${size}px "Noto Music"`;
+  fit = SYMBOLS.map((sym, n) => {
+    const m = ctx.measureText(sym.glyph);
+    const h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+    if (!h || !m.fontBoundingBoxAscent) return { s: 1, dy: 0 };
+    const s = TARGET[n] / (h / size);
+    // with line-height 1 the baseline sits here, measured from the top of the 1em box
+    const baseline = 0.5 + (m.fontBoundingBoxAscent - m.fontBoundingBoxDescent) / 2 / size;
+    const centre = baseline - (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2 / size;
+    return { s, dy: (0.5 - centre) * s };
+  });
+}
 
 const audio = new Audio();
 
 const settings = {
   difficulty: 'easy',
-  scale: 'major',
   instrument: 'piano',
-  labels: 'solfege',
-  tempo: 140,
+  key: 'C',
   volume: 70,
-  muted: false,
+  tempo: 120,
+  theme: 'paper',
+  size: 'm',
   autocheck: true,
+  matching: true,
+  celebrate: true,
+  timer: true,
+  sound: true,
 };
 
-let game = null; // { puzzle, solution, grid, marks, mistakes, hints, elapsed, won }
+let game = null; // { difficulty, puzzle, solution, grid, marks, mistakes, hints, elapsed, won }
 let selected = -1;
 let pencil = false;
 let history = [];
@@ -31,35 +56,52 @@ function save() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify({ settings, game })); } catch { }
 }
 
+const glyph = (v) => {
+  const f = fit[v - 1];
+  return `<span class="glyph sym" style="--s:${f.s.toFixed(3)};--dy:${f.dy.toFixed(3)}em">${SYMBOLS[v - 1].glyph}</span>`;
+};
+
 // ---------- setup ----------
 
 const boardEl = $('board');
-const padEl = $('pad');
-const cells = [];
+const cells = new Array(81);
 const keys = [];
 
-for (let i = 0; i < 81; i++) {
-  const el = document.createElement('div');
-  el.className = `cell r${rowOf(i)} c${colOf(i)}`;
-  el.setAttribute('role', 'gridcell');
-  el.addEventListener('pointerdown', () => { unlock(); select(i, true); });
-  boardEl.appendChild(el);
-  cells.push(el);
+for (let b = 0; b < 9; b++) {
+  const box = document.createElement('div');
+  box.className = 'box';
+  for (const i of boxCells(b)) {
+    const el = document.createElement('div');
+    el.className = 'cell';
+    el.setAttribute('role', 'gridcell');
+    el.addEventListener('pointerdown', () => { audio.unlock(); select(i, true); });
+    box.appendChild(el);
+    cells[i] = el;
+  }
+  boardEl.appendChild(box);
 }
 
-for (let v = 1; v <= 9; v++) {
+SYMBOLS.forEach((s, n) => {
+  const v = n + 1;
   const el = document.createElement('button');
   el.className = 'key';
-  el.style.setProperty('--note', `var(--n${v})`);
-  el.addEventListener('pointerdown', (e) => { e.preventDefault(); unlock(); input(v); flashKey(v); });
-  padEl.appendChild(el);
+  el.setAttribute('aria-label', s.name);
+  el.title = `${s.name} (${v})`;
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); audio.unlock(); input(v); flashKey(v); });
+  el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); input(v); } });
+  $('pad').appendChild(el);
   keys.push(el);
-}
 
-for (const [k, s] of Object.entries(SCALES)) $('scale').add(new Option(s.name, k));
-for (const [k, name] of Object.entries(INSTRUMENTS)) $('instrument').add(new Option(name, k));
+  const item = document.createElement('button');
+  item.dataset.v = v;
+  item.addEventListener('pointerdown', () => { audio.unlock(); audio.play(v); });
+  $('legend').appendChild(item);
+});
 
-function unlock() { audio.unlock(); }
+const instSeg = document.querySelector('[data-setting="instrument"]');
+for (const [k, inst] of Object.entries(INSTRUMENTS)) instSeg.insertAdjacentHTML('beforeend', `<button data-value="${k}">${inst.name}</button>`);
+const keySeg = document.querySelector('[data-setting="key"]');
+for (const k of Object.keys(KEYS)) keySeg.insertAdjacentHTML('beforeend', `<button data-value="${k}">${k.replace('b', '♭')}</button>`);
 
 // ---------- game state ----------
 
@@ -79,7 +121,7 @@ function newGame(difficulty = settings.difficulty) {
   };
   history = [];
   selected = -1;
-  $('win').hidden = true;
+  pencil = false;
   save();
   render();
 }
@@ -100,7 +142,7 @@ function snapshot() {
 
 function undo() {
   const prev = history.pop();
-  if (!prev) return;
+  if (!prev || game.won) return;
   game.grid = prev.grid;
   game.marks = prev.marks;
   save();
@@ -109,15 +151,16 @@ function undo() {
 
 function input(v) {
   if (!game || game.won || selected < 0 || isGiven(selected)) {
-    // no editable square selected: the keys work as a little keyboard
+    // nothing editable selected: the pad works as a little instrument
     audio.play(v);
+    if (game && !game.won && selected < 0) say('Tap a square first, then a symbol.');
     return;
   }
   if (pencil) {
     if (game.grid[selected]) { audio.play(v); return; }
     snapshot();
     game.marks[selected] ^= 1 << v;
-    audio.play(v, { gain: 0.25, length: 0.4 });
+    audio.tick();
     save();
     render();
     return;
@@ -132,17 +175,20 @@ function place(i, v) {
   game.marks[i] = 0;
   for (const p of peers(i)) game.marks[p] &= ~(1 << v);
 
-  if (isWrong(i)) {
-    if (settings.autocheck) game.mistakes++;
-    audio.play(v, { gain: 0.35 });
-    audio.wrong();
-  } else {
-    audio.play(v);
-    ping(i);
-    celebrateGroups(i);
-  }
+  const wrong = isWrong(i);
+  if (wrong && settings.autocheck) game.mistakes++;
+  audio.play(v, { gain: wrong ? 0.3 : 0.5 });
+  if (wrong) audio.wrong();
   save();
   render();
+  animate(i, wrong ? 'shake' : 'pop');
+  if (wrong) say(settings.autocheck ? "That symbol doesn't go there." : 'That symbol is already in this row, column or box.');
+  else {
+    clearTimeout(sayTimer);
+    sayTimer = null;
+    $('hintLine').textContent = defaultLine();
+    if (settings.celebrate) celebrateGroups(i);
+  }
   checkWin();
 }
 
@@ -169,100 +215,102 @@ function reveal() {
   place(i, game.solution[i]);
 }
 
-function earHint() {
-  if (selected < 0 || game.won) return;
-  const v = game.solution[selected];
-  audio.play(v, { length: 1.2 });
-  audio.play(v, { when: 0.55, length: 1.2, gain: 0.3 });
-  ping(selected, v);
+function listen() {
+  if (game.won) return;
+  if (selected < 0 || isGiven(selected)) { say('Pick an empty square to hear what goes there.'); return; }
+  audio.play(game.solution[selected]);
+  say('Listen, then find the symbol that sounds like that.');
 }
 
 const groupDone = (list) => list.every((c) => game.grid[c] && !isWrong(c));
+const solved = () => game.grid.every((v, c) => v && !isWrong(c));
 
-// when a row, column or box gets finished, play it back as a melody
+// a finished row, column or box plays back as a little phrase
 function celebrateGroups(i) {
   const groups = [rowCells(rowOf(i)), colCells(colOf(i)), boxCells(boxOf(i))].filter(groupDone);
-  if (!groups.length || game.grid.every((v, c) => v && !isWrong(c))) return;
+  if (!groups.length || solved()) return;
   stopPlayback();
-  let start = 450;
-  for (const g of groups) start = perform(g, { step: 120, start }) + 250;
+  let start = 500;
+  for (const g of groups) start = perform(g, { step: 170, start }) + 300;
 }
 
 function checkWin() {
-  if (!game.grid.every((v, c) => v && !isWrong(c))) return;
+  if (!solved()) return;
   game.won = true;
   selected = -1;
   save();
   render();
-  const m = Math.floor(game.elapsed / 60), s = String(game.elapsed % 60).padStart(2, '0');
-  $('winStats').textContent = `${m}:${s} · ${game.mistakes} mistakes · ${game.hints} reveals`;
-  setTimeout(() => {
-    $('win').hidden = false;
-    playBoard();
-  }, 500);
+  setTimeout(playBoard, 600);
 }
 
 // ---------- playback ----------
 
-const stepMs = () => (60 / settings.tempo) * 1000 / 2;
+const beatMs = () => 60000 / settings.tempo / 2;
 
-// plays cells in order (empty ones are rests) and lights them up. returns ms when it ends
-function perform(list, { step = stepMs(), start = 0, rowGap = 0 } = {}) {
+// plays cells in order (empty ones are silent) and lights them up. returns ms when it ends
+function perform(list, { step = beatMs(), start = 0, rowGap = 0 } = {}) {
   let t = start;
   list.forEach((c, n) => {
     if (rowGap && n && n % 9 === 0) t += step * rowGap;
-    const at = t;
     playTimers.push(setTimeout(() => {
       const v = game.grid[c];
-      if (v) audio.play(v, { length: step / 1000 * 2.5, gain: 0.42 });
+      if (v) audio.play(v, { beat: step / 1000, gain: 0.4 });
       cells[c].classList.add('playing');
-      playTimers.push(setTimeout(() => cells[c].classList.remove('playing'), step * 0.9));
-    }, at));
+      playTimers.push(setTimeout(() => cells[c].classList.remove('playing'), step * 0.85));
+    }, t));
     t += step;
   });
   return t;
+}
+
+function setPlayIcon(playing) {
+  $('playBtn').setAttribute('aria-pressed', String(playing));
+  $('playBtn').innerHTML = `<svg><use href="#i-${playing ? 'stop' : 'play'}"/></svg>`;
 }
 
 function stopPlayback() {
   playTimers.forEach(clearTimeout);
   playTimers = [];
   cells.forEach((el) => el.classList.remove('playing'));
-  $('playBtn').textContent = 'Play board';
-  $('playBtn').setAttribute('aria-pressed', 'false');
+  setPlayIcon(false);
 }
 
 function playBoard() {
   if (playTimers.length) { stopPlayback(); return; }
   const end = perform([...Array(81).keys()], { rowGap: 1 });
-  $('playBtn').textContent = 'Stop';
-  $('playBtn').setAttribute('aria-pressed', 'true');
+  setPlayIcon(true);
   playTimers.push(setTimeout(stopPlayback, end + 200));
-}
-
-function playGroup(kind) {
-  const i = selected >= 0 ? selected : 0;
-  const list = kind === 'row' ? rowCells(rowOf(i)) : kind === 'col' ? colCells(colOf(i)) : boxCells(boxOf(i));
-  stopPlayback();
-  perform(list);
 }
 
 // ---------- view ----------
 
-function ping(i, v) {
+let sayTimer = null;
+function say(text) {
+  clearTimeout(sayTimer);
+  $('hintLine').textContent = text;
+  sayTimer = setTimeout(() => { sayTimer = null; $('hintLine').textContent = defaultLine(); }, 3500);
+}
+function defaultLine() {
+  if (game?.won) return 'Nice work. Press play to hear your board.';
+  return pencil ? 'Notes are on: symbols go in small.' : 'Tap a square, then tap a symbol.';
+}
+
+function animate(i, cls) {
   const el = cells[i];
-  if (v) el.style.setProperty('--note', `var(--n${v})`);
-  el.classList.remove('ping');
+  el.classList.remove('pop', 'shake');
   void el.offsetWidth;
-  el.classList.add('ping');
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), 350);
 }
 
 function flashKey(v) {
   const el = keys[v - 1];
   el.classList.add('down');
-  setTimeout(() => el.classList.remove('down'), 120);
+  setTimeout(() => el.classList.remove('down'), 110);
 }
 
 function select(i, audition) {
+  if (game.won) return;
   selected = i;
   if (audition && game.grid[i]) audio.play(game.grid[i]);
   render();
@@ -270,141 +318,161 @@ function select(i, audition) {
 
 function render() {
   if (!game) return;
-  const labels = noteLabels(settings.scale);
   const selV = selected >= 0 ? game.grid[selected] : 0;
   const selPeers = selected >= 0 ? new Set(peers(selected)) : new Set();
 
   for (let i = 0; i < 81; i++) {
     const el = cells[i];
     const v = game.grid[i];
-    const keep = ['playing', 'ping'].filter((c) => el.classList.contains(c));
-    el.className = `cell r${rowOf(i)} c${colOf(i)}`;
+    const keep = ['playing', 'pop', 'shake'].filter((c) => el.classList.contains(c));
+    el.className = 'cell';
     el.classList.add(...keep);
     if (v) {
-      el.dataset.v = v;
-      el.style.setProperty('--note', `var(--n${v})`);
       el.classList.add(isGiven(i) ? 'given' : 'user');
       if (isWrong(i)) el.classList.add('wrong');
-      if (selV && v === selV && i !== selected) el.classList.add('same');
-      el.innerHTML = settings.labels === 'color' ? '<span class="dot"></span>' : labels[v - 1][settings.labels];
-      el.setAttribute('aria-label', `${labels[v - 1].solfege}${isGiven(i) ? ', given' : ''}`);
+      el.innerHTML = glyph(v);
+      el.setAttribute('aria-label', `${SYMBOLS[v - 1].name}${isGiven(i) ? ', given' : ''}`);
     } else {
-      delete el.dataset.v;
-      el.style.removeProperty('--note');
       const m = game.marks[i];
-      if (m) {
-        el.innerHTML = '<div class="marks">' + Array.from({ length: 9 }, (_, k) =>
-          `<span class="${m & (1 << (k + 1)) ? 'on' : ''}" style="--note:var(--n${k + 1})"></span>`).join('') + '</div>';
-      } else {
-        el.innerHTML = '';
-      }
+      el.innerHTML = m ? '<div class="marks sym">' + SYMBOLS.map((s, k) =>
+        `<span>${m & (1 << (k + 1)) ? s.glyph : ''}</span>`).join('') + '</div>' : '';
       el.setAttribute('aria-label', 'empty');
     }
     if (i === selected) el.classList.add('selected');
+    else if (settings.matching && selV && v === selV) el.classList.add('match');
     else if (selPeers.has(i)) el.classList.add('peer');
   }
 
-  for (let v = 1; v <= 9; v++) {
+  keys.forEach((el, n) => {
+    const v = n + 1;
     const placed = game.grid.filter((x, c) => x === v && !isWrong(c)).length;
-    const el = keys[v - 1];
     el.classList.toggle('done', placed === 9);
-    const name = settings.labels === 'color' ? '' : labels[v - 1][settings.labels];
-    el.innerHTML = `<span class="left">${9 - placed}</span><span>${name}</span>`;
-    el.setAttribute('aria-label', `${labels[v - 1].solfege}, ${9 - placed} left`);
-  }
+    el.innerHTML = `${glyph(v)}<span class="left">${9 - placed || ''}</span>`;
+  });
 
-  $('mistakes').textContent = `Mistakes ${game.mistakes}`;
+  document.body.classList.toggle('pencil-on', pencil);
+  document.body.classList.toggle('no-timer', !settings.timer);
   $('pencilBtn').setAttribute('aria-pressed', String(pencil));
-  updateTimer();
+  $('controls').hidden = game.won;
+  $('win').hidden = !game.won;
+  if (game.won) $('winStats').textContent = `${fmt(game.elapsed)} · ${game.mistakes} mistakes · ${game.hints} reveals`;
+  $('levelLabel').textContent = game.difficulty[0].toUpperCase() + game.difficulty.slice(1);
+  $('mistakes').textContent = `${game.mistakes} mistake${game.mistakes === 1 ? '' : 's'}`;
+  $('timer').textContent = fmt(game.elapsed);
+  if (!sayTimer) $('hintLine').textContent = defaultLine();
 }
 
-function updateTimer() {
-  const m = Math.floor(game.elapsed / 60), s = String(game.elapsed % 60).padStart(2, '0');
-  $('timer').textContent = `${m}:${s}`;
-}
+const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 setInterval(() => {
   if (!game || game.won || document.hidden) return;
   game.elapsed++;
-  updateTimer();
+  $('timer').textContent = fmt(game.elapsed);
   if (game.elapsed % 5 === 0) save();
 }, 1000);
 
-// ---------- controls ----------
+// ---------- settings ----------
 
 function applySettings() {
-  audio.scale = settings.scale;
   audio.instrument = settings.instrument;
+  audio.key = settings.key;
   audio.setVolume(settings.volume / 100);
-  audio.setMuted(settings.muted);
-  $('difficulty').value = settings.difficulty;
-  $('scale').value = settings.scale;
-  $('instrument').value = settings.instrument;
-  $('labels').value = settings.labels;
-  $('tempo').value = settings.tempo;
-  $('volume').value = settings.volume;
-  $('autocheck').checked = settings.autocheck;
-  $('muteBtn').setAttribute('aria-pressed', String(settings.muted));
-  $('muteBtn').textContent = settings.muted ? 'Unmute' : 'Mute';
-}
-
-function bindSetting(id, key, after) {
-  $(id).addEventListener('input', (e) => {
-    const t = e.target;
-    settings[key] = t.type === 'checkbox' ? t.checked : t.type === 'range' ? Number(t.value) : t.value;
-    applySettings();
-    after?.();
-    save();
-    render();
+  audio.setMuted(!settings.sound);
+  document.documentElement.dataset.theme = settings.theme;
+  document.documentElement.dataset.size = settings.size;
+  document.querySelectorAll('.seg').forEach((seg) => {
+    for (const b of seg.children) b.setAttribute('aria-pressed', String(b.dataset.value === settings[seg.dataset.setting]));
   });
+  document.querySelectorAll('[data-toggle]').forEach((t) => { t.checked = settings[t.dataset.toggle]; });
+  $('volume').value = settings.volume;
+  $('tempo').value = settings.tempo;
 }
 
-bindSetting('difficulty', 'difficulty');
-bindSetting('scale', 'scale', () => { unlock(); audio.sequence([1, 2, 3, 4, 5, 6, 7, 8, 9], { step: 0.09 }); });
-bindSetting('instrument', 'instrument', () => { unlock(); audio.chord([1, 3, 5]); });
-bindSetting('labels', 'labels');
-bindSetting('tempo', 'tempo');
-bindSetting('volume', 'volume');
-bindSetting('autocheck', 'autocheck');
+function changed() {
+  applySettings();
+  save();
+  render();
+}
 
-$('newBtn').addEventListener('click', () => newGame(settings.difficulty));
+document.querySelectorAll('.seg').forEach((seg) => {
+  seg.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const key = seg.dataset.setting;
+    settings[key] = b.dataset.value;
+    changed();
+    audio.unlock();
+    if (key === 'instrument' || key === 'key') {
+      audio.play(3, { beat: 0.25 });
+      audio.play(4, { when: 0.3, beat: 0.25 });
+      audio.play(1, { when: 0.6, beat: 0.25 });
+    }
+  });
+});
+document.querySelectorAll('[data-toggle]').forEach((t) => {
+  t.addEventListener('change', () => { settings[t.dataset.toggle] = t.checked; changed(); });
+});
+$('volume').addEventListener('input', (e) => { settings.volume = Number(e.target.value); changed(); });
+$('volume').addEventListener('change', () => { audio.unlock(); audio.play(4); });
+$('tempo').addEventListener('input', (e) => { settings.tempo = Number(e.target.value); changed(); });
+
+// ---------- controls ----------
+
+$('newBtn').addEventListener('click', () => { $('settings').close(); newGame(settings.difficulty); });
 $('winNew').addEventListener('click', () => newGame(settings.difficulty));
-$('winPlay').addEventListener('click', () => { unlock(); stopPlayback(); playBoard(); });
+$('winPlay').addEventListener('click', () => { audio.unlock(); stopPlayback(); playBoard(); });
 $('pencilBtn').addEventListener('click', () => { pencil = !pencil; render(); });
 $('eraseBtn').addEventListener('click', erase);
 $('undoBtn').addEventListener('click', undo);
-$('hintBtn').addEventListener('click', () => { unlock(); reveal(); });
-$('listenBtn').addEventListener('click', () => { unlock(); earHint(); });
-$('playBtn').addEventListener('click', () => { unlock(); playBoard(); });
-$('rowBtn').addEventListener('click', () => { unlock(); playGroup('row'); });
-$('colBtn').addEventListener('click', () => { unlock(); playGroup('col'); });
-$('boxBtn').addEventListener('click', () => { unlock(); playGroup('box'); });
-$('muteBtn').addEventListener('click', () => { settings.muted = !settings.muted; applySettings(); save(); });
+$('hintBtn').addEventListener('click', () => { audio.unlock(); reveal(); });
+$('listenBtn').addEventListener('click', () => { audio.unlock(); listen(); });
+$('playBtn').addEventListener('click', () => { audio.unlock(); playBoard(); });
+$('settingsBtn').addEventListener('click', () => $('settings').showModal());
 $('helpBtn').addEventListener('click', () => $('help').showModal());
 
+// close sheets with their buttons or by tapping the backdrop
+document.querySelectorAll('dialog').forEach((d) => {
+  d.addEventListener('click', (e) => {
+    if (e.target === d || e.target.closest('[data-close]')) d.close();
+  });
+});
+
 document.addEventListener('keydown', (e) => {
-  if (e.target.closest?.('select, input, dialog')) return;
-  unlock();
+  if (document.querySelector('dialog[open]')) return;
+  if (e.target.closest?.('input')) return;
+  audio.unlock();
   const k = e.key;
   if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^[1-9]$/.test(k)) { input(Number(k)); flashKey(Number(k)); return; }
   if (k === 'Backspace' || k === 'Delete' || k === '0') { erase(); return; }
-  if (k === 'p' || k === 'P' || k === 'n' || k === 'N') { pencil = !pencil; render(); return; }
-  if (k === 'e' || k === 'E') { earHint(); return; }
+  if (k === 'n' || k === 'N' || k === 'p' || k === 'P') { pencil = !pencil; render(); return; }
+  if (k === 'l' || k === 'L') { listen(); return; }
   if (k === ' ') { e.preventDefault(); playBoard(); return; }
-  const moves = { ArrowUp: -9, ArrowDown: 9, ArrowLeft: -1, ArrowRight: 1 };
+  if (k === 'Escape') { selected = -1; render(); return; }
+  const moves = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
   if (k in moves) {
     e.preventDefault();
-    if (selected < 0) { select(0, true); return; }
-    const r = rowOf(selected), c = colOf(selected);
-    const nr = (r + (k === 'ArrowUp' ? 8 : k === 'ArrowDown' ? 1 : 0)) % 9;
-    const nc = (c + (k === 'ArrowLeft' ? 8 : k === 'ArrowRight' ? 1 : 0)) % 9;
-    select(nr * 9 + nc, true);
+    if (selected < 0) { select(40, true); return; }
+    const [dr, dc] = moves[k];
+    select(((rowOf(selected) + dr + 9) % 9) * 9 + (colOf(selected) + dc + 9) % 9, true);
   }
 });
 
 // ---------- start ----------
+
+function drawLegend() {
+  for (const item of $('legend').children) {
+    const s = SYMBOLS[item.dataset.v - 1];
+    item.innerHTML = `${glyph(Number(item.dataset.v))}<b>${s.name}</b><small>${s.sound}</small>`;
+  }
+}
+drawLegend();
+document.fonts?.load('1em "Noto Music"', SYMBOLS.map((s) => s.glyph).join('')).then(() => {
+  measureGlyphs();
+  drawLegend();
+  render();
+});
 
 const saved = load();
 if (saved?.settings) Object.assign(settings, saved.settings);
@@ -412,7 +480,6 @@ applySettings();
 if (saved?.game?.grid?.length === 81) {
   game = saved.game;
   render();
-  if (game.won) $('win').hidden = false;
 } else {
   newGame();
 }

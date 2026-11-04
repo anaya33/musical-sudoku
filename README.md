@@ -1,15 +1,28 @@
 # Musical Sudoku
 
-Sudoku where the nine numbers are nine notes. Every row, column and box has to hold each note once, and you hear the grid as you fill it.
+Sudoku with nine music symbols instead of numbers: treble clef, bass clef, half, quarter, eighth and sixteenth notes, sharp, flat and fermata. Every row, column and box needs each symbol once.
 
-- tap a square, tap a note, hear it
-- finishing a row, column or box plays it back
-- **Play board** plays the whole grid row by row (empty squares are rests)
-- **Ear hint** plays the right note without showing it
-- 4 scales (major, minor, pentatonic, dorian), 4 sounds (piano, marimba, bells, synth)
-- pencil marks, undo, progress saved in the browser
+Every symbol has its own sound, and it plays the moment you place it:
 
-All sound is made live with the Web Audio API, so there are no audio files and no build step.
+| symbol | sound |
+| --- | --- |
+| treble clef | a bright high G |
+| bass clef | a deep low F |
+| half note | a long C, two beats |
+| quarter note | one E, one beat |
+| eighth note | two quick Gs |
+| sixteenth note | four fast As |
+| sharp | a D that slides up |
+| flat | a B that slides down |
+| fermata | a high C that holds and swells |
+
+- the play button plays the whole board row by row (empty squares are silent)
+- finished rows, columns and boxes play back
+- Listen plays the right symbol for a square without showing it
+- notes, undo, erase, reveal, progress saved in the browser
+- settings: level, instrument (piano, music box, marimba, soft synth), key, volume, tempo, paper or ink theme, symbol size, and help toggles
+
+Black and white, flat paper tiles. All sound is made live with the Web Audio API, so there are no audio files and no build step.
 
 ## Run it locally
 
