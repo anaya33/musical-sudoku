@@ -24,7 +24,7 @@ Each symbol is a real note on the treble staff (lines E G B D F, spaces F A C E)
 
 Black and white, flat paper look. No build step.
 
-Instrument sounds are the FluidR3 GM soundfont, loaded from [gleitz/midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts). If they can't load, a built-in synth plays instead.
+Instrument sounds are the FluidR3 GM soundfont via [gleitz/midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts), CC BY 3.0, saved in `samples/` (see `samples/CREDITS.md`). If they can't load, a built-in synth plays instead.
 
 ## Run it locally
 

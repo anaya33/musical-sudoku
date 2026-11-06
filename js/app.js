@@ -1,5 +1,5 @@
-import { generate, geometry, candidates } from './sudoku.js?v=6';
-import { Audio, SYMBOLS, INSTRUMENTS, KEYS } from './audio.js?v=6';
+import { generate, geometry, candidates } from './sudoku.js?v=7';
+import { Audio, SYMBOLS, INSTRUMENTS, KEYS } from './audio.js?v=7';
 
 const SAVE_KEY = 'musical-sudoku-v3';
 const $ = (id) => document.getElementById(id);

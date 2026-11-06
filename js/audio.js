@@ -43,7 +43,9 @@ export const INSTRUMENTS = {
   synth: { name: 'Synth', partials: [[1, 0.6, 'sawtooth'], [1.003, 0.6, 'sawtooth']], decay: 0.9, filter: true },
 };
 
-const SAMPLE_BASE = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/';
+// recordings live in samples/ next to the page. the online copy is a backup
+const SAMPLE_BASE = 'samples/';
+const REMOTE_BASE = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/';
 const NOTE_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 const PRETTY = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
 const FALLBACK = { partials: [[1, 1, 'triangle'], [2, 0.4, 'sine'], [3, 0.15, 'sine'], [4, 0.08, 'sine']], decay: 1.4 };
@@ -73,7 +75,13 @@ export class Audio {
   }
 
   url(m, inst = this.instrument) {
-    return `${SAMPLE_BASE}${INSTRUMENTS[inst].gm}-mp3/${fileName(m)}.mp3`;
+    return `${SAMPLE_BASE}${INSTRUMENTS[inst].gm}/${fileName(m)}.mp3`;
+  }
+
+  fetchNote(u) {
+    const get = (x) => fetch(x).then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); });
+    const [, gm, file] = u.match(/([^/]+)\/([^/]+)$/);
+    return get(u).catch(() => get(`${REMOTE_BASE}${gm}-mp3/${file}`));
   }
 
   // fetch every note the current instrument + key needs. bends use the same file, pitched by playback rate
@@ -83,7 +91,7 @@ export class Audio {
     const urls = SYMBOLS.map((_, k) => this.url(this.midi(k + 1)));
     for (const u of urls) {
       if (!this.raw.has(u)) {
-        this.raw.set(u, fetch(u).then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }));
+        this.raw.set(u, this.fetchNote(u));
         this.raw.get(u).catch(() => this.raw.delete(u));
       }
     }
