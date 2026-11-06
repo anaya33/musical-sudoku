@@ -1,5 +1,6 @@
-import { generate, geometry, candidates } from './sudoku.js?v=7';
-import { Audio, SYMBOLS, INSTRUMENTS, KEYS } from './audio.js?v=7';
+import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=10';
+import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=10';
+import { Audio, SYMBOLS, INSTRUMENTS, KEYS } from './audio.js?v=10';
 
 const SAVE_KEY = 'musical-sudoku-v3';
 const $ = (id) => document.getElementById(id);
@@ -10,6 +11,21 @@ const SETS = {
   6: [1, 2, 4, 5, 7, 8],
   9: [1, 2, 3, 4, 5, 6, 7, 8, 9],
 };
+
+// how much help each level gives.
+// flag: 'solution' = any wrong symbol turns red, 'rules' = only symbols that clash turn red
+const MODES = {
+  learn: { name: 'Learn', dim: true, explain: true, flag: 'solution',
+    info: 'Lots of symbols to start. Symbols that can\'t fit are greyed out, and an arrow explains every move.' },
+  easy: { name: 'Easy', flag: 'solution',
+    info: 'Solvable with the simplest logic. Wrong symbols turn red.' },
+  medium: { name: 'Medium', flag: 'solution',
+    info: 'Needs pairs and pointing tricks. Wrong symbols turn red.' },
+  hard: { name: 'Hard', flag: 'rules',
+    info: 'Needs advanced logic like X-wings. Mistakes only show when they break a rule.' },
+  tutorial: { name: 'Tutorial', dim: true, flag: 'solution', info: '' },
+};
+const mode = () => MODES[game.difficulty] ?? MODES.easy;
 
 // music glyphs come in very different sizes and heights, so each one is measured
 // and scaled to a target height (in em), then centred in its tile
@@ -43,15 +59,13 @@ const settings = {
   tempo: 120,
   theme: 'paper',
   size: 'm',
-  autocheck: true,
   matching: true,
-  dim: true,
   celebrate: true,
   timer: true,
   sound: true,
 };
 
-let game = null; // { n, difficulty, puzzle, solution, grid, marks, mistakes, hints, elapsed, won }
+let game = null; // { n, difficulty, puzzle, solution, grid, marks, mistakes, hints, elapsed, won, techniques }
 let geo = null;
 let selected = -1;
 let pencil = false;
@@ -59,17 +73,21 @@ let history = [];
 let playTimers = [];
 let cells = [];
 let keys = [];
+let hint = null; // { cell, value } while a hint is showing, a second press fills it
+let busy = false;
 
 // storage can be blocked (private mode etc), so every access is guarded
 function load() {
   try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch { return null; }
 }
 function save() {
+  if (game?.difficulty === 'tutorial') return;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify({ settings, game })); } catch { }
 }
 
 // grid values are 1..n, this maps them to a symbol id 1..9
 const symOf = (v) => SETS[game.n][v - 1];
+const nameOf = (v) => SYMBOLS[symOf(v) - 1].name.toLowerCase();
 const sound = (v, opts) => audio.play(symOf(v), opts);
 
 const glyph = (id) => {
@@ -161,17 +179,41 @@ for (const [k, inst] of Object.entries(INSTRUMENTS)) instSeg.insertAdjacentHTML(
 const keySeg = document.querySelector('[data-setting="key"]');
 for (const k of Object.keys(KEYS)) keySeg.insertAdjacentHTML('beforeend', `<button data-value="${k}">${k.replace('b', '♭')}</button>`);
 
-// ---------- game state ----------
+// ---------- making puzzles ----------
 
-function newGame() {
+// puzzles are built in a worker so a hard one never freezes the page
+let worker = null, jobId = 0;
+const jobs = new Map();
+function makePuzzle(n, difficulty) {
+  if (!worker && typeof Worker !== 'undefined') {
+    try {
+      worker = new Worker(new URL('./worker.js?v=10', import.meta.url), { type: 'module' });
+      worker.onmessage = (e) => { jobs.get(e.data.id)?.(e.data.result); jobs.delete(e.data.id); };
+      worker.onerror = () => { worker = false; };
+    } catch { worker = false; }
+  }
+  if (worker) {
+    const id = ++jobId;
+    return new Promise((res) => { jobs.set(id, res); worker.postMessage({ id, n, difficulty }); });
+  }
+  return import('./generator.js?v=10').then((m) => m.generate(n, difficulty));
+}
+
+async function newGame() {
   stopPlayback();
+  hideCoach();
+  tutorialStep = -1;
+  setBusy(true);
   const n = Number(settings.grid);
-  const { puzzle, solution } = generate(n, settings.difficulty);
+  const difficulty = settings.difficulty;
+  const r = await makePuzzle(n, difficulty);
+  setBusy(false);
+  start({ n, difficulty, puzzle: r.puzzle, solution: r.solution, techniques: r.techniques ?? [] });
+}
+
+function start({ n, difficulty, puzzle, solution, techniques = [] }) {
   game = {
-    n,
-    difficulty: settings.difficulty,
-    puzzle,
-    solution,
+    n, difficulty, puzzle, solution, techniques,
     grid: puzzle.slice(),
     marks: new Array(n * n).fill(0),
     mistakes: 0,
@@ -182,25 +224,42 @@ function newGame() {
   history = [];
   selected = -1;
   pencil = false;
+  hint = null;
   $('gameNote').hidden = true;
   build();
   save();
   render();
 }
 
+function setBusy(on) {
+  busy = on;
+  $('board').classList.toggle('busy', on);
+  $('busy').hidden = !on;
+}
+
+// ---------- rules ----------
+
 const isGiven = (i) => game.puzzle[i] !== 0;
 const hasProgress = () => game.grid.some((v, i) => v !== game.puzzle[i]) || game.marks.some(Boolean);
+let clashCache = null;
+const clashes = () => clashCache ?? (clashCache = conflicts(geo, game.grid));
 
 function isWrong(i) {
   const v = game.grid[i];
   if (!v || isGiven(i)) return false;
-  if (settings.autocheck) return v !== game.solution[i];
-  return geo.peers[i].some((p) => game.grid[p] === v);
+  return mode().flag === 'solution' ? v !== game.solution[i] : clashes().has(i);
 }
+
+const solved = () => isSolved(geo, game.grid);
+const groupDone = (list) => list.every((c) => game.grid[c] && !isWrong(c));
 
 function snapshot() {
   history.push({ grid: game.grid.slice(), marks: game.marks.slice() });
   if (history.length > 200) history.shift();
+}
+
+function changedGrid() {
+  clashCache = null;
 }
 
 function undo() {
@@ -208,11 +267,17 @@ function undo() {
   if (!prev || game.won) return;
   game.grid = prev.grid;
   game.marks = prev.marks;
+  changedGrid();
+  hint = null;
+  hideCoach();
   save();
   render();
 }
 
+// ---------- moves ----------
+
 function input(v) {
+  if (busy) return;
   if (game.won || selected < 0 || isGiven(selected)) {
     // nothing editable selected: the pad works as a little instrument
     sound(v);
@@ -231,32 +296,35 @@ function input(v) {
   place(selected, v);
 }
 
-function place(i, v) {
+function place(i, v, { fromHint = false } = {}) {
   if (game.grid[i] === v) { sound(v); return; }
+  const before = game.grid.slice();
   snapshot();
   game.grid[i] = v;
   game.marks[i] = 0;
   for (const p of geo.peers[i]) game.marks[p] &= ~(1 << v);
+  changedGrid();
+  hint = null;
 
   const wrong = isWrong(i);
-  if (wrong && settings.autocheck) game.mistakes++;
+  if (wrong) game.mistakes++;
   sound(v, { sour: wrong });
   if (wrong) audio.wrong();
   save();
   render();
   animate(i, wrong ? 'shake' : 'pop');
+
   if (wrong) {
-    say(settings.autocheck ? "That one's out of tune here. Try another." : 'That symbol is already in this row, column or box.', true);
-    $('mistakes').classList.remove('flash');
-    void $('mistakes').offsetWidth;
-    $('mistakes').classList.add('flash');
+    flashMistakes();
+    if (mode().explain || game.difficulty === 'tutorial') explainWrong(i, v);
+    else say(mode().flag === 'solution' ? "That one's out of tune here. Try another." : 'That symbol is already in this row, column or box.', true);
   } else {
-    clearTimeout(sayTimer);
-    sayTimer = null;
-    $('hintLine').textContent = defaultLine();
-    $('hintLine').classList.remove('bad');
+    hideCoach();
+    clearSay();
+    if (mode().explain && !fromHint) explainRight(i, v, before);
     if (settings.celebrate) celebrateGroups(i);
   }
+  if (game.difficulty === 'tutorial') tutorialMoved(i, v, wrong);
   checkWin();
 }
 
@@ -266,21 +334,10 @@ function erase() {
   snapshot();
   game.grid[selected] = 0;
   game.marks[selected] = 0;
+  changedGrid();
+  hideCoach();
   save();
   render();
-}
-
-function reveal() {
-  if (game.won) return;
-  let i = selected;
-  if (i < 0 || isGiven(i) || game.grid[i] === game.solution[i]) {
-    const open = [...Array(geo.total).keys()].filter((c) => game.grid[c] !== game.solution[c]);
-    if (!open.length) return;
-    i = open[Math.floor(Math.random() * open.length)];
-    selected = i;
-  }
-  game.hints++;
-  place(i, game.solution[i]);
 }
 
 function listen() {
@@ -290,12 +347,102 @@ function listen() {
   say('Listen, then find the symbol that sounds like that.');
 }
 
-const groupDone = (list) => list.every((c) => game.grid[c] && !isWrong(c));
-const solved = () => game.grid.every((v, c) => v && !isWrong(c));
+// ---------- explanations ----------
+
+const unitName = (u) => u.kind;
+const unitsOf = (i) => [
+  { kind: 'row', cells: geo.rows[geo.rowOf(i)] },
+  { kind: 'column', cells: geo.cols[geo.colOf(i)] },
+  { kind: 'box', cells: geo.boxes[geo.boxOf(i)] },
+];
+
+// why v is right at i, judged from the board as it was just before the move
+function reasonFor(i, v, grid) {
+  const mask = candidateMask(geo, grid, i);
+  if (popcount(mask) === 1) {
+    return {
+      text: `Only the ${nameOf(v)} fits here. Its row, column and box already have every other symbol.`,
+      cells: geo.peers[i].filter((p) => grid[p]),
+    };
+  }
+  for (const u of unitsOf(i)) {
+    const others = u.cells.filter((c) => c !== i && !grid[c]);
+    if (others.every((c) => !(candidateMask(geo, grid, c) & (1 << v)))) {
+      return { text: `This is the only spot in this ${unitName(u)} where the ${nameOf(v)} can go.`, cells: u.cells };
+    }
+  }
+  return null;
+}
+
+function explainRight(i, v, before) {
+  const r = reasonFor(i, v, before);
+  const text = r ? `Right! ${r.text}` : `Right! This one takes a trickier chain of logic to prove from here.`;
+  showCoach(cells[i], text, { cells: r?.cells ?? [], timeout: 6000 });
+}
+
+function explainWrong(i, v) {
+  const clash = geo.peers[i].find((p) => game.grid[p] === v);
+  if (clash !== undefined) {
+    const kind = geo.rowOf(clash) === geo.rowOf(i) ? 'row' : geo.colOf(clash) === geo.colOf(i) ? 'column' : 'box';
+    showCoach(cells[i], `The ${nameOf(v)} is already in this ${kind}. Each symbol can only appear once.`, { cells: [clash], bad: true, timeout: 6000 });
+  } else {
+    showCoach(cells[i], `The ${nameOf(v)} doesn't break a rule yet, but it isn't the answer here. Try another symbol.`, { bad: true, timeout: 6000 });
+  }
+}
+
+// ---------- hints ----------
+
+const techniqueName = (t) => TECHNIQUES[t].label.toLowerCase();
+
+function giveHint() {
+  if (game.won || busy) return;
+  // a second press on the same hint fills it in
+  if (hint && selected === hint.cell && !game.grid[hint.cell]) {
+    game.hints++;
+    place(hint.cell, hint.value, { fromHint: true });
+    return;
+  }
+  // fix mistakes first: logic from a wrong board would point the wrong way
+  const wrongCell = game.grid.findIndex((v, i) => v && !isGiven(i) && v !== game.solution[i]);
+  if (wrongCell >= 0) {
+    selected = wrongCell;
+    render();
+    showCoach(cells[wrongCell], `This symbol isn't right. Erase it, then try again.`, { bad: true, timeout: 6000 });
+    return;
+  }
+  const step = nextPlacement(geo, game.grid);
+  let cell, value, text, marked = [];
+  if (step) {
+    cell = step.place.cell;
+    value = step.place.value;
+    if (step.technique === 'nakedSingle') {
+      text = `Look here. Every symbol but one is already in this square's row, column or box.`;
+      marked = geo.peers[cell].filter((p) => game.grid[p]);
+    } else {
+      text = `Look at this ${step.unit.kind}. There's only one spot left for one of the symbols.`;
+      marked = step.unit.cells;
+    }
+    if (step.before.length) {
+      const tricks = [...new Set(step.before)].map(techniqueName).join(', ');
+      text = `Tricky one. First a ${tricks} rules some symbols out. ${text}`;
+    }
+  } else {
+    const open = game.grid.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
+    cell = open[Math.floor(Math.random() * open.length)];
+    value = game.solution[cell];
+    text = 'This one needs guessing-level logic, so here is a free square.';
+  }
+  hint = { cell, value };
+  selected = cell;
+  render();
+  showCoach(cells[cell], `${text} Press Hint again to fill it in.`, { cells: marked });
+}
+
+// ---------- finishing ----------
 
 // a finished row, column or box plays back as a little phrase
 function celebrateGroups(i) {
-  const groups = [geo.rows[geo.rowOf(i)], geo.cols[geo.colOf(i)], geo.boxes[geo.boxOf(i)]].filter(groupDone);
+  const groups = unitsOf(i).map((u) => u.cells).filter(groupDone);
   if (!groups.length || solved()) return;
   stopPlayback();
   let start = 500;
@@ -306,6 +453,7 @@ function checkWin() {
   if (!solved()) return;
   game.won = true;
   selected = -1;
+  hint = null;
   save();
   render();
   setTimeout(playBoard, 600);
@@ -348,6 +496,130 @@ function playBoard() {
   const end = perform([...Array(geo.total).keys()], { rowGap: 1 });
   setPlayIcon(true);
   playTimers.push(setTimeout(stopPlayback, end + 200));
+  if (game.difficulty === 'tutorial') tutorialPlayed();
+}
+
+// ---------- coach: the speech bubble with an arrow ----------
+
+let coachTimer = null;
+let coachTarget = null;
+let coachCells = [];
+
+function showCoach(target, text, { cells: marked = [], bad = false, timeout = 0, action = null, onAction = null } = {}) {
+  clearTimeout(coachTimer);
+  const coach = $('coach');
+  coach.querySelector('p').textContent = text;
+  const btn = coach.querySelector('button');
+  btn.hidden = !action;
+  btn.textContent = action ?? '';
+  btn.onclick = onAction;
+  coach.classList.toggle('bad', bad);
+  coach.hidden = false;
+  document.querySelectorAll('.cell.why').forEach((el) => el.classList.remove('why'));
+  coachCells = marked;
+  for (const c of marked) cells[c]?.classList.add('why');
+  document.querySelectorAll('.coach-target').forEach((el) => el.classList.remove('coach-target'));
+  coachTarget = target;
+  target?.classList.add('coach-target');
+  placeCoach();
+  if (timeout) coachTimer = setTimeout(hideCoach, timeout);
+}
+
+function hideCoach() {
+  clearTimeout(coachTimer);
+  $('coach').hidden = true;
+  coachCells = [];
+  coachTarget = null;
+  document.querySelectorAll('.cell.why').forEach((el) => el.classList.remove('why'));
+  document.querySelectorAll('.coach-target').forEach((el) => el.classList.remove('coach-target'));
+}
+
+// sit below the target if there's room, otherwise above, with the arrow pointing at it
+function placeCoach() {
+  const coach = $('coach');
+  if (coach.hidden) return;
+  const app = document.querySelector('.app').getBoundingClientRect();
+  const width = Math.min(320, app.width - 16);
+  coach.style.width = `${width}px`;
+  if (!coachTarget) {
+    const b = $('board').getBoundingClientRect();
+    coach.style.left = `${b.left - app.left + (b.width - width) / 2}px`;
+    coach.style.top = `${b.top - app.top + b.height / 2 - coach.offsetHeight / 2}px`;
+    coach.dataset.side = 'none';
+    return;
+  }
+  const t = coachTarget.getBoundingClientRect();
+  const cx = t.left + t.width / 2 - app.left;
+  const left = Math.max(8, Math.min(app.width - width - 8, cx - width / 2));
+  coach.style.left = `${left}px`;
+  coach.style.setProperty('--arrow-x', `${cx - left}px`);
+  const below = t.bottom - app.top + 12;
+  const above = t.top - app.top - coach.offsetHeight - 12;
+  const roomBelow = window.innerHeight - t.bottom > coach.offsetHeight + 24;
+  if (roomBelow || above < 0) { coach.style.top = `${below}px`; coach.dataset.side = 'below'; }
+  else { coach.style.top = `${above}px`; coach.dataset.side = 'above'; }
+}
+window.addEventListener('resize', placeCoach);
+
+// ---------- tutorial ----------
+
+// a fixed 4x4 puzzle so every step points at a square with one clear answer
+const TUTORIAL = {
+  puzzle: [1, 2, 3, 0, 3, 0, 0, 2, 0, 1, 0, 3, 4, 0, 2, 0],
+  solution: [1, 2, 3, 4, 3, 4, 1, 2, 2, 1, 4, 3, 4, 3, 2, 1],
+};
+let tutorialStep = -1;
+
+const TUTORIAL_STEPS = [
+  { text: 'Welcome! This is sudoku played with music. Every row, column and box needs each symbol exactly once.', target: () => null, next: true },
+  { text: 'These are your symbols. Each one is a real note on the staff. Tap them to hear how they sound.', target: () => $('pad'), next: true },
+  { text: 'This row already has the treble clef, bass clef and quarter note. Only one is missing. Tap this square, then the eighth note.', target: () => cells[3], cells: [0, 1, 2], wait: 3 },
+  { text: 'Columns work the same way. What is missing from this column? Tap the square and choose it.', target: () => cells[8], cells: [0, 4, 12], wait: 8 },
+  { text: 'And boxes too. This box has three symbols already. Fill in the last one.', target: () => cells[5], cells: [0, 1, 4], wait: 5 },
+  { text: 'If a symbol doesn\'t fit, it turns red and plays out of tune. Undo takes it back.', target: () => $('undoBtn'), next: true },
+  { text: 'Not sure yet? Notes lets you pencil in small options. Listen plays the right note without showing it.', target: () => $('pencilBtn'), next: true },
+  { text: 'Stuck? Hint points at the next square and tells you why it works.', target: () => $('hintBtn'), next: true },
+  { text: 'Now finish the board on your own. Every row, column and box needs all four.', target: () => null, solve: true, timeout: 5000 },
+  { text: 'You solved it! Press play to hear your puzzle as music.', target: () => $('playBtn'), play: true },
+  { text: 'That\'s it. Learn mode is next: it greys out symbols that can\'t fit and explains every move.', target: () => null, finish: true },
+];
+
+function startTutorial() {
+  $('help').close();
+  $('settings').close();
+  stopPlayback();
+  start({ n: 4, difficulty: 'tutorial', puzzle: TUTORIAL.puzzle, solution: TUTORIAL.solution });
+  showTutorialStep(0);
+}
+
+function showTutorialStep(k) {
+  tutorialStep = k;
+  const s = TUTORIAL_STEPS[k];
+  if (!s) return;
+  const opts = { cells: s.cells ?? [], timeout: s.timeout ?? 0 };
+  if (s.next) Object.assign(opts, { action: 'Next', onAction: () => showTutorialStep(k + 1) });
+  if (s.finish) Object.assign(opts, { action: 'Start Learn mode', onAction: finishTutorial });
+  showCoach(s.target(), s.text, opts);
+}
+
+function tutorialMoved(i, v, wrong) {
+  const s = TUTORIAL_STEPS[tutorialStep];
+  if (!s) return;
+  if (s.wait === i && !wrong) setTimeout(() => showTutorialStep(tutorialStep + 1), 900);
+  else if (s.wait !== undefined && !wrong) setTimeout(() => showTutorialStep(tutorialStep), 1200);
+  if (s.solve && solved()) setTimeout(() => showTutorialStep(tutorialStep + 1), 400);
+}
+
+function tutorialPlayed() {
+  const s = TUTORIAL_STEPS[tutorialStep];
+  if (s?.play) setTimeout(() => showTutorialStep(tutorialStep + 1), 2500);
+}
+
+function finishTutorial() {
+  hideCoach();
+  settings.difficulty = 'learn';
+  applySettings();
+  newGame();
 }
 
 // ---------- view ----------
@@ -357,15 +629,24 @@ function say(text, bad = false) {
   clearTimeout(sayTimer);
   $('hintLine').textContent = text;
   $('hintLine').classList.toggle('bad', bad);
-  sayTimer = setTimeout(() => {
-    sayTimer = null;
-    $('hintLine').textContent = defaultLine();
-    $('hintLine').classList.remove('bad');
-  }, 3500);
+  sayTimer = setTimeout(clearSay, 3500);
+}
+function clearSay() {
+  clearTimeout(sayTimer);
+  sayTimer = null;
+  $('hintLine').textContent = defaultLine();
+  $('hintLine').classList.remove('bad');
 }
 function defaultLine() {
   if (game?.won) return 'Nice work. Press play to hear your board.';
+  if (busy) return '';
   return pencil ? 'Notes are on: symbols go in small.' : 'Tap a square, then tap a symbol.';
+}
+
+function flashMistakes() {
+  $('mistakes').classList.remove('flash');
+  void $('mistakes').offsetWidth;
+  $('mistakes').classList.add('flash');
 }
 
 function animate(i, cls) {
@@ -383,7 +664,8 @@ function flashKey(v) {
 }
 
 function select(i, audition) {
-  if (game.won) return;
+  if (game.won || busy) return;
+  if (selected !== i && game.difficulty !== 'tutorial' && hint?.cell !== i) hideCoach();
   selected = i;
   // every tap makes a sound: the symbol if there is one, a soft tick if empty
   if (audition) game.grid[i] ? sound(game.grid[i]) : audio.unlock() || audio.tick();
@@ -395,22 +677,25 @@ function render() {
   const selV = selected >= 0 ? game.grid[selected] : 0;
   const selPeers = selected >= 0 ? new Set(geo.peers[selected]) : new Set();
   const n = game.n;
+  const m = mode();
+  const clash = clashes();
 
   for (let i = 0; i < geo.total; i++) {
     const el = cells[i];
     const v = game.grid[i];
-    const keep = ['playing', 'pop', 'shake'].filter((c) => el.classList.contains(c));
+    const keep = ['playing', 'pop', 'shake', 'why', 'coach-target'].filter((c) => el.classList.contains(c));
     el.className = 'cell';
     el.classList.add(...keep);
     if (v) {
       el.classList.add(isGiven(i) ? 'given' : 'user');
       if (isWrong(i)) el.classList.add('wrong');
+      else if (clash.has(i)) el.classList.add('clash');
       el.innerHTML = glyph(symOf(v));
       el.setAttribute('aria-label', `${SYMBOLS[symOf(v) - 1].name}${isGiven(i) ? ', given' : ''}`);
     } else {
-      const m = game.marks[i];
-      el.innerHTML = m ? '<div class="marks sym">' + SETS[n].map((id, k) =>
-        `<span>${m & (1 << (k + 1)) ? SYMBOLS[id - 1].glyph : ''}</span>`).join('') + '</div>' : '';
+      const marks = game.marks[i];
+      el.innerHTML = marks ? '<div class="marks sym">' + SETS[n].map((id, k) =>
+        `<span>${marks & (1 << (k + 1)) ? SYMBOLS[id - 1].glyph : ''}</span>`).join('') + '</div>' : '';
       el.setAttribute('aria-label', 'empty');
     }
     if (i === selected) el.classList.add('selected');
@@ -418,8 +703,8 @@ function render() {
     else if (selPeers.has(i)) el.classList.add('peer');
   }
 
-  // grey out symbols that can't go in the selected square
-  const allowed = settings.dim && selected >= 0 && !isGiven(selected) && !game.grid[selected]
+  // learn mode only: grey out symbols that can't go in the selected square
+  const allowed = m.dim && selected >= 0 && !isGiven(selected) && !game.grid[selected]
     ? new Set(candidates(geo, game.grid, selected)) : null;
 
   keys.forEach((el, k) => {
@@ -431,21 +716,25 @@ function render() {
   });
 
   document.body.classList.toggle('pencil-on', pencil);
-  document.body.classList.toggle('no-timer', !settings.timer);
+  document.body.classList.toggle('no-timer', !settings.timer || game.difficulty === 'tutorial');
   $('pencilBtn').setAttribute('aria-pressed', String(pencil));
   $('controls').hidden = game.won;
-  $('win').hidden = !game.won;
-  if (game.won) $('winStats').textContent = `${fmt(game.elapsed)} · ${game.mistakes} mistakes · ${game.hints} reveals`;
-  $('levelLabel').textContent = `${n}×${n} · ${game.difficulty[0].toUpperCase()}${game.difficulty.slice(1)}`;
+  $('win').hidden = !game.won || game.difficulty === 'tutorial';
+  if (game.won) {
+    const tricks = game.techniques.length ? ` · used: ${game.techniques.map(techniqueName).join(', ')}` : '';
+    $('winStats').textContent = `${fmt(game.elapsed)} · ${game.mistakes} mistakes · ${game.hints} hints${tricks}`;
+  }
+  $('levelLabel').textContent = game.difficulty === 'tutorial' ? 'Tutorial' : `${n}×${n} · ${m.name}`;
   $('mistakes').textContent = `${game.mistakes} mistake${game.mistakes === 1 ? '' : 's'}`;
   $('timer').textContent = fmt(game.elapsed);
   if (!sayTimer) $('hintLine').textContent = defaultLine();
+  placeCoach();
 }
 
 const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 setInterval(() => {
-  if (!game || game.won || document.hidden) return;
+  if (!game || game.won || busy || document.hidden || game.difficulty === 'tutorial') return;
   game.elapsed++;
   $('timer').textContent = fmt(game.elapsed);
   if (game.elapsed % 5 === 0) save();
@@ -455,6 +744,7 @@ setInterval(() => {
 
 function applySettings() {
   if (!INSTRUMENTS[settings.instrument]) settings.instrument = 'piano';
+  if (!MODES[settings.difficulty] || settings.difficulty === 'tutorial') settings.difficulty = 'easy';
   if (audio.instrument !== settings.instrument || audio.key !== settings.key) {
     audio.instrument = settings.instrument;
     audio.key = settings.key;
@@ -471,6 +761,7 @@ function applySettings() {
   document.querySelectorAll('[data-toggle]').forEach((t) => { t.checked = settings[t.dataset.toggle]; });
   $('volume').value = settings.volume;
   $('tempo').value = settings.tempo;
+  $('levelInfo').textContent = MODES[settings.difficulty].info;
 }
 
 function changed() {
@@ -486,17 +777,11 @@ document.querySelectorAll('.seg').forEach((seg) => {
     const key = seg.dataset.setting;
     settings[key] = b.dataset.value;
     changed();
-    if (key === 'instrument' || key === 'key') {
-      // a little run up the staff: E G B D
-      audio.play(5, { beat: 0.3 });
-      audio.play(1, { when: 0.3 });
-      audio.play(3, { when: 0.6, beat: 0.3 });
-      audio.play(4, { when: 0.9 });
-    }
+    if (key === 'instrument' || key === 'key') audio.preview();
     // a new size or level starts right away unless you're mid-game
     if (key === 'grid' || key === 'difficulty') {
       const differs = Number(settings.grid) !== game.n || settings.difficulty !== game.difficulty;
-      if (differs && (!hasProgress() || game.won)) newGame();
+      if (differs && (!hasProgress() || game.won || game.difficulty === 'tutorial')) newGame();
       else $('gameNote').hidden = !differs;
     }
   });
@@ -516,11 +801,12 @@ $('winPlay').addEventListener('click', () => { stopPlayback(); playBoard(); });
 $('pencilBtn').addEventListener('click', () => { pencil = !pencil; render(); });
 $('eraseBtn').addEventListener('click', erase);
 $('undoBtn').addEventListener('click', undo);
-$('hintBtn').addEventListener('click', reveal);
+$('hintBtn').addEventListener('click', giveHint);
 $('listenBtn').addEventListener('click', listen);
 $('playBtn').addEventListener('click', () => { audio.unlock(); playBoard(); });
 $('settingsBtn').addEventListener('click', () => $('settings').showModal());
 $('helpBtn').addEventListener('click', () => $('help').showModal());
+document.querySelectorAll('[data-tutorial]').forEach((b) => b.addEventListener('click', startTutorial));
 
 // close sheets with their buttons or by tapping the backdrop
 document.querySelectorAll('dialog').forEach((d) => {
@@ -543,8 +829,9 @@ document.addEventListener('keydown', (e) => {
   if (k === 'Backspace' || k === 'Delete' || k === '0') { erase(); return; }
   if (k === 'n' || k === 'N' || k === 'p' || k === 'P') { pencil = !pencil; render(); return; }
   if (k === 'l' || k === 'L') { listen(); return; }
+  if (k === 'h' || k === 'H') { giveHint(); return; }
   if (k === ' ') { e.preventDefault(); playBoard(); return; }
-  if (k === 'Escape') { selected = -1; render(); return; }
+  if (k === 'Escape') { selected = -1; hideCoach(); render(); return; }
   const moves = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
   if (k in moves) {
     e.preventDefault();
@@ -562,14 +849,15 @@ const saved = load();
 if (saved?.settings) Object.assign(settings, saved.settings);
 applySettings();
 audio.load(); // start fetching the instrument right away so the first tap has real sound
-if (saved?.game?.n && saved.game.grid?.length === saved.game.n ** 2) {
-  game = saved.game;
+if (!saved) {
+  startTutorial();
+} else if (saved.game?.n && saved.game.grid?.length === saved.game.n ** 2) {
+  game = { techniques: [], ...saved.game };
   build();
   render();
 } else {
   newGame();
 }
-if (!saved) $('help').showModal();
 
 document.fonts?.load('1em "Noto Music"', SYMBOLS.map((s) => s.glyph).join('')).then(() => {
   measureGlyphs();

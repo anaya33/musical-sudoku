@@ -48,7 +48,6 @@ const SAMPLE_BASE = 'samples/';
 const REMOTE_BASE = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/';
 const NOTE_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 const PRETTY = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
-const FALLBACK = { partials: [[1, 1, 'triangle'], [2, 0.4, 'sine'], [3, 0.15, 'sine'], [4, 0.08, 'sine']], decay: 1.4 };
 
 const midiToHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
 const fileName = (m) => `${NOTE_NAMES[m % 12]}${Math.floor(m / 12) - 1}`;
@@ -61,6 +60,8 @@ export class Audio {
     this.volume = 0.7;
     this.muted = false;
     this.raw = new Map(); // url -> Promise<ArrayBuffer>
+    this.level = new WeakMap(); // AudioBuffer -> gain that evens out its loudness
+    this.loading = Promise.resolve();
     this.buffers = new Map(); // url -> AudioBuffer, once decoded
     this.decoding = new Map(); // url -> Promise<AudioBuffer>
     this.onstatus = null;
@@ -86,8 +87,9 @@ export class Audio {
 
   // fetch every note the current instrument + key needs. bends use the same file, pitched by playback rate
   load() {
+    this.init();
     const inst = INSTRUMENTS[this.instrument];
-    if (!inst?.gm) { this.onstatus?.('ready'); return; }
+    if (!inst?.gm) { this.onstatus?.('ready'); return (this.loading = Promise.resolve()); }
     const urls = SYMBOLS.map((_, k) => this.url(this.midi(k + 1)));
     for (const u of urls) {
       if (!this.raw.has(u)) {
@@ -95,29 +97,45 @@ export class Audio {
         this.raw.get(u).catch(() => this.raw.delete(u));
       }
     }
+    if (urls.every((u) => this.buffers.has(u))) { this.onstatus?.('ready'); return (this.loading = Promise.resolve()); }
     this.onstatus?.('loading');
     const want = this.instrument + this.key;
-    Promise.all(urls.map((u) => this.decode(u)))
+    this.loading = Promise.all(urls.map((u) => this.decode(u)))
       .then(() => { if (want === this.instrument + this.key) this.onstatus?.('ready'); })
       .catch(() => { if (want === this.instrument + this.key) this.onstatus?.('failed'); });
+    return this.loading;
   }
 
   // turning raw bytes into sound needs the audio context, which only exists after the first tap
   decode(u) {
     if (this.buffers.has(u)) return Promise.resolve(this.buffers.get(u));
-    if (!this.ctx) return this.raw.get(u) ?? Promise.reject(new Error('not fetched'));
+    if (!this.raw.has(u)) {
+      this.raw.set(u, this.fetchNote(u));
+      this.raw.get(u).catch(() => this.raw.delete(u));
+    }
     if (!this.decoding.has(u)) {
-      const p = (this.raw.get(u) ?? Promise.reject(new Error('not fetched')))
+      const p = this.raw.get(u)
         .then((ab) => new Promise((res, rej) => this.ctx.decodeAudioData(ab.slice(0), res, rej)))
-        .then((b) => { this.buffers.set(u, b); return b; });
+        .then((b) => { this.level.set(b, this.levelFor(b)); this.buffers.set(u, b); return b; });
       p.catch(() => this.decoding.delete(u));
       this.decoding.set(u, p);
     }
     return this.decoding.get(u);
   }
 
-  // browsers only allow audio after a user gesture, so this runs on the first tap/key
-  unlock() {
+  // how much to turn a recording up or down so every note sits at the same loudness
+  levelFor(buf) {
+    let peak = 0;
+    for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < d.length; i += 4) { const a = Math.abs(d[i]); if (a > peak) peak = a; }
+    }
+    return peak > 0.001 ? 0.8 / peak : 1;
+  }
+
+  // the context is made straight away (paused) so recordings can be decoded before the first tap.
+  // browsers only let it make sound after a tap or key, which unlock() handles
+  init() {
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AC({ latencyHint: 'interactive' });
@@ -134,8 +152,11 @@ export class Audio {
       this.dry.connect(comp);
       this.wet.connect(reverb).connect(comp);
       comp.connect(this.master).connect(this.ctx.destination);
-      this.load();
     }
+  }
+
+  unlock() {
+    this.init();
     if (this.ctx.state === 'suspended') this.ctx.resume();
   }
 
@@ -176,27 +197,35 @@ export class Audio {
       this.ctx.resume().then(() => this.play(symbol, opts));
       return;
     }
-    const { when = 0, beat = 0.34, gain = 0.6, sour = false } = opts;
-    const t = this.ctx.currentTime + 0.005 + when;
+    const { when = 0, beat = 0.34, gain = 0.6, sour = false, plain = false } = opts;
     const m = this.midi(symbol);
     const inst = INSTRUMENTS[this.instrument];
     const buf = inst.gm ? this.buffers.get(this.url(m)) : null;
-    if (inst.gm && !buf) this.decode(this.url(m)).catch(() => {});
+    if (inst.gm && !buf) {
+      // the recording isn't ready yet: wait for it rather than play a different sound.
+      // if it takes too long the moment has passed, so skip it
+      const asked = performance.now();
+      this.decode(this.url(m)).then(() => {
+        if (performance.now() - asked < 1500) this.play(symbol, { ...opts, when: Math.max(0, when - (performance.now() - asked) / 1000) });
+      }).catch(() => {});
+      return;
+    }
+    const t = this.ctx.currentTime + 0.005 + when;
 
-    for (const n of PATTERNS[symbol - 1]) {
+    for (const n of plain ? [{ o: 0, d: 1 }] : PATTERNS[symbol - 1]) {
       const at = t + n.o * beat, len = n.d * beat;
       const copies = sour ? [{ detune: 45 }, { detune: -40 }] : [{ detune: 0 }];
       for (const c of copies) {
         const o = { ...n, detune: c.detune, wobble: sour };
         const g = gain * (sour ? 0.6 : 1);
         if (buf) this.sample(buf, at, len, g, o, inst);
-        else this.synth(midiToHz(m), at, len, g * 0.8, o, inst.partials ? inst : FALLBACK);
+        else this.synth(midiToHz(m), at, len, g * 0.8, o, inst);
       }
     }
   }
 
   sample(buf, t, len, gain, { bend = 0, swell = false, detune = 0, wobble = false }, inst) {
-    gain *= 2.4; // the recordings are quieter than the synth
+    gain *= this.level.get(buf) ?? 1;
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     src.detune.value = detune;
@@ -209,7 +238,7 @@ export class Audio {
     const out = this.out();
     const g = out.gain;
     // ringing instruments keep their natural decay, held ones stop when the note ends
-    const ring = inst.sustain ? 0.12 : Math.min(1.6, Math.max(0.5, len * 2));
+    const ring = inst.sustain ? 0.3 : Math.min(1.8, Math.max(0.7, len * 2.5));
     const end = t + len + ring;
     if (swell && inst.sustain) {
       g.setValueAtTime(gain * 0.4, t);
@@ -267,6 +296,16 @@ export class Audio {
       o.start(t);
       o.stop(end);
     }
+  }
+
+  // E G B D F, the lines of the staff, one clean note each
+  preview() {
+    this.unlock();
+    const want = this.instrument + this.key;
+    this.loading.then(() => {
+      if (want !== this.instrument + this.key) return;
+      [5, 1, 3, 4, 6].forEach((s, k) => this.play(s, { plain: true, when: k * 0.26, beat: k === 4 ? 0.9 : 0.3, gain: 0.5 }));
+    });
   }
 
   // a muted thud that sits under a wrong note

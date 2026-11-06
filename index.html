@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Noto+Music&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -48,7 +48,10 @@
     </div>
 
     <main class="game">
-      <div id="board" class="board" role="grid" aria-label="Sudoku board"></div>
+      <div class="board-wrap">
+        <div id="board" class="board" role="grid" aria-label="Sudoku board"></div>
+        <div id="busy" class="busy" hidden><span class="logo" aria-hidden="true">&#x1D11E;</span>Writing a new puzzle…</div>
+      </div>
 
       <aside class="side">
         <div id="controls">
@@ -58,7 +61,7 @@
             <button class="tool" id="undoBtn"><svg><use href="#i-undo"/></svg><span>Undo</span></button>
             <button class="tool" id="eraseBtn"><svg><use href="#i-trash"/></svg><span>Erase</span></button>
             <button class="tool" id="listenBtn" title="Hear the right symbol without seeing it"><svg><use href="#i-ear"/></svg><span>Listen</span></button>
-            <button class="tool" id="hintBtn"><svg><use href="#i-bulb"/></svg><span>Reveal</span></button>
+            <button class="tool" id="hintBtn"><svg><use href="#i-bulb"/></svg><span>Hint</span></button>
           </div>
         </div>
 
@@ -72,6 +75,11 @@
     </main>
 
     <p class="hint-line" id="hintLine">Tap a square, then tap a symbol.</p>
+
+    <div id="coach" class="coach" role="status" aria-live="polite" hidden>
+      <p></p>
+      <button class="btn primary" hidden></button>
+    </div>
   </div>
 
   <dialog id="settings" class="sheet" aria-labelledby="settingsTitle">
@@ -93,13 +101,16 @@
       <div class="field">
         <span class="field-label">Level</span>
         <div class="seg" data-setting="difficulty">
+          <button data-value="learn">Learn</button>
           <button data-value="easy">Easy</button>
           <button data-value="medium">Medium</button>
           <button data-value="hard">Hard</button>
         </div>
       </div>
+      <p class="note" id="levelInfo"></p>
       <p class="note" id="gameNote" hidden>This starts when you begin a new game.</p>
       <button class="btn primary wide" id="newBtn">Start a new game</button>
+      <button class="btn wide" data-tutorial>Play the tutorial</button>
     </section>
 
     <section class="group">
@@ -149,8 +160,6 @@
 
     <section class="group">
       <h3>Help while playing</h3>
-      <label class="switch"><span>Mark mistakes right away</span><input type="checkbox" data-toggle="autocheck"></label>
-      <label class="switch"><span>Grey out symbols that can't go in a square</span><input type="checkbox" data-toggle="dim"></label>
       <label class="switch"><span>Highlight matching symbols</span><input type="checkbox" data-toggle="matching"></label>
       <label class="switch"><span>Play finished rows, columns and boxes</span><input type="checkbox" data-toggle="celebrate"></label>
       <label class="switch"><span>Show timer</span><input type="checkbox" data-toggle="timer"></label>
@@ -170,13 +179,16 @@
       <li><b>Play</b> (top right) plays the whole board, row by row. Empty squares are silent.</li>
       <li><b>Listen</b> plays the right symbol for the selected square without showing it.</li>
       <li><b>Notes</b> lets you pencil in small options.</li>
+      <li><b>Hint</b> points at the next square and explains why. Press it again to fill it in.</li>
+      <li><b>Learn</b> mode greys out symbols that can't fit and explains every move. <b>Hard</b> only flags mistakes that break a rule.</li>
     </ul>
     <p class="keys">Change the instrument, key and grid size in Settings (the gear).</p>
     <p class="keys">Keyboard: 1–9 place · arrows move · Backspace erase · N notes · L listen · Space play · Ctrl+Z undo</p>
     <button class="btn primary wide" data-close>Let's play</button>
+    <button class="btn wide tutorial-btn" data-tutorial>Play the tutorial</button>
     <p class="credit">Instrument sounds: FluidR3 GM soundfont, via gleitz/midi-js-soundfonts.</p>
   </dialog>
 
-  <script type="module" src="js/app.js?v=7"></script>
+  <script type="module" src="js/app.js?v=10"></script>
 </body>
 </html>

@@ -17,10 +17,33 @@ Each symbol is a real note on the treble staff (lines E G B D F, spaces F A C E)
 | fermata | E, top space | holds |
 
 - tap any square to hear it; a wrong symbol turns red, shakes and plays out of tune
-- symbols that can't go in the selected square are greyed out
 - the play button plays the whole board; finished rows, columns and boxes play back
-- Listen plays the right note for a square without showing it
+- Hint points at the next square and says why it works (press again to fill it in); Listen plays the right note without showing it
 - settings: grid size, level, instrument (piano, guitar, strings, violin, harp, flute, music box, marimba, synth), a row to try every note, key, volume, tempo, paper or ink theme, symbol size, help toggles
+
+## Levels
+
+- **Tutorial**: a guided 4×4 walkthrough (starts the first time you open the game)
+- **Learn**: lots of starting symbols, impossible symbols greyed out, an arrow explains every move
+- **Easy**: only needs singles. Wrong symbols turn red
+- **Medium**: needs pairs, pointing pairs or box/line reduction. Wrong symbols turn red
+- **Hard**: needs hidden pairs, triples or X-wings. Mistakes only show when they break a rule
+
+## How the puzzles are made
+
+Three separate algorithms in `js/solvers/`:
+
+1. **Dancing links** (`dlx.js`): Knuth's Algorithm X on the exact cover form of sudoku. Proves a puzzle has exactly one solution.
+2. **Bitmask backtracking** (`backtrack.js`): search with constraint propagation and fewest-options-first. Builds the random full grids and double-checks dancing links.
+3. **Logic solver** (`logic.js`): solves like a person with named techniques and never guesses. Grades difficulty and powers the hints.
+
+`generator.js` takes symbols away in mirror pairs, keeping one only if dancing links still finds a single solution and the logic solver can still finish without guessing. Puzzles are built in a web worker so the page never freezes.
+
+Run the tests (Node 18+), which cross-check all three on hundreds of puzzles:
+
+```
+npm test
+```
 
 Black and white, flat paper look. No build step.
 

@@ -1,5 +1,6 @@
-// puzzle generation + solving for 4x4, 6x6 and 9x9 grids.
-// a grid is a flat array of n*n numbers, 0 = empty, 1..n = a symbol
+// the rules of sudoku for 4x4, 6x6 and 9x9 grids.
+// a grid is a flat array of n*n numbers, 0 = empty, 1..n = a symbol.
+// candidate sets are bitmasks where bit v means "v is still possible"
 
 // box shape (rows x cols) for each grid size
 const BOX = { 4: [2, 2], 6: [2, 3], 9: [3, 3] };
@@ -18,79 +19,72 @@ export function geometry(n) {
   const cols = Array.from({ length: n }, (_, c) => Array.from({ length: n }, (_, r) => r * n + c));
   const boxes = Array.from({ length: n }, () => []);
   for (let i = 0; i < total; i++) boxes[boxOf(i)].push(i);
+  // every unit tagged with its kind, used by the logic solver and for explanations
+  const units = [
+    ...rows.map((cells, k) => ({ kind: 'row', k, cells })),
+    ...cols.map((cells, k) => ({ kind: 'column', k, cells })),
+    ...boxes.map((cells, k) => ({ kind: 'box', k, cells })),
+  ];
   const peers = Array.from({ length: total }, (_, i) => {
     const s = new Set([...rows[rowOf(i)], ...cols[colOf(i)], ...boxes[boxOf(i)]]);
     s.delete(i);
     return [...s];
   });
-  return (geoCache[n] = { n, br, bc, total, rowOf, colOf, boxOf, rows, cols, boxes, peers });
+  const all = ((1 << (n + 1)) - 1) & ~1; // bits 1..n
+  return (geoCache[n] = { n, br, bc, total, all, rowOf, colOf, boxOf, rows, cols, boxes, units, peers });
 }
 
-function shuffle(a) {
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
+// ---------- bit helpers ----------
+
+export function popcount(m) {
+  let c = 0;
+  while (m) { m &= m - 1; c++; }
+  return c;
 }
 
-export function candidates(geo, grid, i) {
-  if (grid[i]) return [];
-  const used = new Set(geo.peers[i].map((p) => grid[p]));
+// value of the lowest set bit
+export const lowBit = (m) => 31 - Math.clz32(m & -m);
+
+export function bitsToValues(m) {
   const out = [];
-  for (let v = 1; v <= geo.n; v++) if (!used.has(v)) out.push(v);
+  while (m) { const v = lowBit(m); out.push(v); m &= m - 1; }
   return out;
 }
 
-// backtracking with fewest-candidates heuristic. returns number of solutions found (stops at limit)
-function search(geo, grid, limit, randomize, onSolution) {
-  let best = -1, bestCands = null;
-  for (let i = 0; i < geo.total; i++) {
-    if (grid[i]) continue;
-    const c = candidates(geo, grid, i);
-    if (c.length === 0) return 0;
-    if (!bestCands || c.length < bestCands.length) {
-      best = i; bestCands = c;
-      if (c.length === 1) break;
-    }
-  }
-  if (best === -1) { onSolution?.(grid); return 1; }
-  if (randomize) shuffle(bestCands);
-  let count = 0;
-  for (const v of bestCands) {
-    grid[best] = v;
-    count += search(geo, grid, limit - count, randomize, onSolution);
-    if (count >= limit) break;
-  }
-  grid[best] = 0;
-  return count;
+// ---------- rules ----------
+
+export function candidateMask(geo, grid, i) {
+  if (grid[i]) return 0;
+  let used = 0;
+  for (const p of geo.peers[i]) used |= 1 << grid[p];
+  return geo.all & ~used;
 }
 
-export const countSolutions = (geo, grid, limit = 2) => search(geo, grid.slice(), limit, false);
+export const candidates = (geo, grid, i) => bitsToValues(candidateMask(geo, grid, i));
 
-// how many symbols are given at the start
-const CLUES = {
-  4: { easy: 8, medium: 6, hard: 5 },
-  6: { easy: 20, medium: 16, hard: 13 },
-  9: { easy: 40, medium: 32, hard: 26 },
-};
-
-export function generate(n = 9, difficulty = 'easy') {
-  const geo = geometry(n);
-  let solution = null;
-  search(geo, new Array(geo.total).fill(0), 1, true, (s) => { solution = s.slice(); });
-  const puzzle = solution.slice();
-  const target = CLUES[n][difficulty] ?? CLUES[n].easy;
-  let filled = geo.total;
-  // remove symmetric pairs while the solution stays unique
-  const half = Math.ceil(geo.total / 2);
-  for (const i of shuffle([...Array(half).keys()])) {
-    if (filled <= target) break;
-    const j = geo.total - 1 - i;
-    const a = puzzle[i], b = puzzle[j];
-    puzzle[i] = 0; puzzle[j] = 0;
-    if (countSolutions(geo, puzzle) !== 1) { puzzle[i] = a; puzzle[j] = b; continue; }
-    filled -= i === j ? 1 : 2;
+// every filled cell that repeats a symbol in its row, column or box
+export function conflicts(geo, grid) {
+  const bad = new Set();
+  for (const u of geo.units) {
+    const seen = new Map();
+    for (const i of u.cells) {
+      const v = grid[i];
+      if (!v) continue;
+      if (seen.has(v)) { bad.add(i); bad.add(seen.get(v)); } else seen.set(v, i);
+    }
   }
-  return { puzzle, solution };
+  return bad;
+}
+
+export const isFull = (grid) => grid.every(Boolean);
+
+// a finished, rule-following grid
+export const isSolved = (geo, grid) => isFull(grid) && conflicts(geo, grid).size === 0;
+
+export function shuffle(a, rng = Math.random) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
