@@ -1,6 +1,6 @@
-import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=14';
-import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=14';
-import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=14';
+import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=15';
+import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=15';
+import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=15';
 
 const SAVE_KEY = 'musical-sudoku-v3';
 const $ = (id) => document.getElementById(id);
@@ -56,7 +56,6 @@ const settings = {
   instrument: 'piano',
   key: 'C',
   volume: 70,
-  tempo: 120,
   dark: false,
   timer: true,
   sound: true,
@@ -65,6 +64,7 @@ const settings = {
 };
 const MATCHING = true; // highlight every copy of the selected symbol
 const CELEBRATE = true; // play finished rows, columns and boxes
+const TEMPO = 80; // slow enough to hear each note in the melody
 
 let game = null; // { n, difficulty, puzzle, solution, grid, marks, mistakes, hints, elapsed, won, techniques }
 let geo = null;
@@ -175,7 +175,7 @@ const jobs = new Map();
 function makePuzzle(n, difficulty) {
   if (!worker && typeof Worker !== 'undefined') {
     try {
-      worker = new Worker(new URL('./worker.js?v=14', import.meta.url), { type: 'module' });
+      worker = new Worker(new URL('./worker.js?v=15', import.meta.url), { type: 'module' });
       worker.onmessage = (e) => { jobs.get(e.data.id)?.(e.data.result); jobs.delete(e.data.id); };
       worker.onerror = () => { worker = false; };
     } catch { worker = false; }
@@ -184,7 +184,7 @@ function makePuzzle(n, difficulty) {
     const id = ++jobId;
     return new Promise((res) => { jobs.set(id, res); worker.postMessage({ id, n, difficulty }); });
   }
-  return import('./generator.js?v=14').then((m) => m.generate(n, difficulty));
+  return import('./generator.js?v=15').then((m) => m.generate(n, difficulty));
 }
 
 async function newGame() {
@@ -438,7 +438,7 @@ function celebrateGroups(i) {
   if (!groups.length || solved()) return;
   stopPlayback();
   let start = 500;
-  for (const g of groups) start = perform(g, { step: 170, start }) + 300;
+  for (const g of groups) start = perform(g, { step: 300, start }) + 400;
 }
 
 function checkWin() {
@@ -473,7 +473,7 @@ function wave() {
 
 // ---------- playback ----------
 
-const beatMs = () => 60000 / settings.tempo / 2;
+const beatMs = () => 60000 / TEMPO / 2;
 
 // plays cells in order (empty ones are silent) and lights them up. returns ms when it ends
 function perform(list, { step = beatMs(), start = 0, rowGap = 0 } = {}) {
