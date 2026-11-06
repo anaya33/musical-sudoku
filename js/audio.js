@@ -30,7 +30,8 @@ const PATTERNS = [
 export const KEYS = { C: 0, D: 2, Eb: 3, F: 5, G: 7, A: 9 };
 
 // real recordings, one file per note. where an instrument skips notes, the nearest
-// recording is pitched up or down a little. sustain = it can hold a note (violin, flute)
+// recording is pitched up or down a little. sustain = it can hold a note (violin, flute).
+// pace = how quickly it plays melodies: above 1 is quicker, below 1 is slower
 const SHARPS = ['C', 'Cs', 'D', 'Ds', 'E', 'F', 'Fs', 'G', 'Gs', 'A', 'As', 'B'];
 const FLATS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 const PRETTY = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
@@ -46,18 +47,19 @@ const vsco = (dir, notes, extra = {}) => ({
 });
 
 export const INSTRUMENTS = {
-  piano: { name: 'Piano', ...vsco('piano', range(64, 86)) },
+  piano: { name: 'Piano', ...vsco('piano', range(64, 86)), pace: 1 },
   guitar: {
     name: 'Guitar',
     dir: 'samples/acoustic_guitar_nylon',
     remote: 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_guitar_nylon-mp3',
     names: FLATS,
     notes: range(64, 86),
+    pace: 1.1,
   },
-  violin: { name: 'Violin', ...vsco('violin', [64, 67, 69, 72, 76, 79, 81, 84]), sustain: true },
-  flute: { name: 'Flute', ...vsco('flute', [64, 69, 72, 76, 81, 84]), sustain: true },
-  harp: { name: 'Harp', ...vsco('harp', [65, 69, 72, 76, 79, 83, 86]) },
-  xylophone: { name: 'Xylophone', ...vsco('xylophone', [67, 72, 79, 84]) },
+  violin: { name: 'Violin', ...vsco('violin', [64, 67, 69, 72, 76, 79, 81, 84]), sustain: true, pace: 0.8 },
+  flute: { name: 'Flute', ...vsco('flute', [64, 69, 72, 76, 81, 84]), sustain: true, pace: 0.9 },
+  harp: { name: 'Harp', ...vsco('harp', [65, 69, 72, 76, 79, 83, 86]), pace: 1.1 },
+  xylophone: { name: 'Xylophone', ...vsco('xylophone', [67, 72, 79, 84]), pace: 1.25 },
 };
 
 export class Audio {
@@ -73,6 +75,10 @@ export class Audio {
     this.buffers = new Map(); // url -> AudioBuffer, once decoded
     this.decoding = new Map(); // url -> Promise<AudioBuffer>
     this.onstatus = null;
+  }
+
+  get pace() {
+    return INSTRUMENTS[this.instrument]?.pace ?? 1;
   }
 
   midi(symbol) {
@@ -242,7 +248,7 @@ export class Audio {
       this.ctx.resume().then(() => { if (performance.now() - asked < 800) this.play(symbol, opts); }).catch(() => {});
       return;
     }
-    const { when = 0, beat = 0.45, gain = 0.6, sour = false, plain = false } = opts;
+    const { when = 0, beat = 0.4 / this.pace, gain = 0.6, sour = false, plain = false } = opts;
     const m = this.midi(symbol);
     const inst = INSTRUMENTS[this.instrument];
     const pick = this.sampleFor(m);
@@ -306,7 +312,8 @@ export class Audio {
     const want = this.instrument + this.key;
     this.loading.then(() => {
       if (want !== this.instrument + this.key) return;
-      [5, 1, 3, 4, 6].forEach((s, k) => this.play(s, { plain: true, when: k * 0.42, beat: k === 4 ? 1.2 : 0.45, gain: 0.5 }));
+      const step = 0.38 / this.pace;
+      [5, 1, 3, 4, 6].forEach((s, k) => this.play(s, { plain: true, when: k * step, beat: k === 4 ? step * 3 : step, gain: 0.5 }));
     });
   }
 
