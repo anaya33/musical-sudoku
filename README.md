@@ -4,11 +4,11 @@
 
 # Musical Sudoku
 
-Sudoku, but music (and a hint of math)
+Sudoku, but music 
 
 [![Play now](https://img.shields.io/badge/%E2%96%B6%20Play%20now-1c1b19?style=for-the-badge)](https://anaya33.github.io/musical-sudoku/)
 
-<sub>Built on <a href="https://arxiv.org/abs/cs/0011047"><ins><b>Dancing Links</b></ins></a></sub>
+<sub>On <a href="https://arxiv.org/abs/cs/0011047"><ins><b>Dancing Links</b></ins></a></sub>
 
 </div>
 
