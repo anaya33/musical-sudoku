@@ -5,6 +5,7 @@
   --tile-edge: #dfdbd0;
   --tile-sink: #d6d1c4;
   --peer: #ebe7dd;
+  --grid-line: #bdb8ab;
   --match: #dcd7ca;
   --ink: #1c1b19;
   --ink-soft: #6f6b62;
@@ -22,6 +23,7 @@
   --tile-edge: #33312c;
   --tile-sink: #0e0e0c;
   --peer: #2c2b27;
+  --grid-line: #4a4740;
   --match: #3b3934;
   --ink: #f1eee6;
   --ink-soft: #a9a497;
@@ -39,6 +41,7 @@
     --tile-edge: #33312c;
     --tile-sink: #0e0e0c;
     --peer: #2c2b27;
+  --grid-line: #4a4740;
     --match: #3b3934;
     --ink: #f1eee6;
     --ink-soft: #a9a497;
@@ -130,75 +133,79 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 #timer { font-variant-numeric: tabular-nums; }
 .no-timer #timer, .no-timer .timer-sep { display: none; }
 
-/* layout: board + side panel, stacks on phones */
+/* layout: board + side panel side by side on wide screens, stacked below 860px.
+   the board shrinks on short screens so board + keypad always fit without scrolling */
 .game {
   display: grid;
-  grid-template-columns: minmax(0, 600px) minmax(240px, 300px);
-  gap: 28px;
+  grid-template-columns: var(--board) minmax(240px, 300px);
+  gap: 32px;
   align-items: start;
   justify-content: center;
+  --board: min(600px, calc(100svh - 150px), calc(100vw - 380px));
 }
+.board { width: var(--board); }
 
-/* board: 3x3 boxes of 3x3 rounded tiles */
+/* board: one classic sudoku grid in a rounded card. the gaps let the dark
+   background show through as lines: thin between squares, thick between boxes */
 .board {
+  container-type: inline-size;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: clamp(6px, 1.6vw, 10px);
+  grid-template: repeat(3, minmax(0, 1fr)) / repeat(3, minmax(0, 1fr));
+  gap: 3px;
   aspect-ratio: 1;
-  width: 100%;
+  padding: 0;
+  background: var(--ink);
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 0 var(--tile-edge);
   user-select: none;
   touch-action: manipulation;
 }
 .box {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: clamp(3px, 0.8vw, 5px);
+  grid-template: repeat(3, minmax(0, 1fr)) / repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  min-height: 0;
+  background: var(--grid-line);
 }
 
 .cell {
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 1;
   background: var(--tile);
-  border: 1px solid var(--tile-edge);
-  border-radius: clamp(6px, 1.4vw, 11px);
-  box-shadow: 0 2px 0 var(--tile-edge);
   cursor: pointer;
-  transition: background-color 0.12s, color 0.12s, transform 0.12s;
+  transition: background-color 0.12s, color 0.12s;
   line-height: 1;
   overflow: hidden;
+  min-height: 0;
 }
-.cell .glyph {
-  font-size: calc(clamp(1.4rem, 6.4vw, 2.9rem) * var(--sym));
-}
+.cell .glyph { font-size: calc(8cqw * var(--sym)); }
 .cell.given { color: var(--ink); }
 .cell.user { color: var(--ink-soft); }
 .cell.peer { background: var(--peer); }
 .cell.match { background: var(--match); }
-.cell.selected {
-  background: var(--ink);
-  color: var(--on-ink);
-  border-color: var(--ink);
-  box-shadow: 0 2px 0 var(--tile-sink);
-}
+.cell.selected { background: var(--ink); color: var(--on-ink); }
 .cell.wrong {
   background-image: repeating-linear-gradient(-45deg, transparent 0 5px, var(--tile-edge) 5px 6px);
   outline: 2px dashed var(--ink);
-  outline-offset: -5px;
+  outline-offset: -4px;
 }
 .cell.wrong.selected { background-image: none; outline-color: var(--on-ink); }
-.cell.shake { animation: shake 0.3s; }
-.cell.pop { animation: pop 0.28s ease-out; }
-.cell.playing {
-  background: var(--ink);
-  color: var(--on-ink);
-  border-color: var(--ink);
-  transform: translateY(1px) scale(0.96);
-}
+.cell.shake .glyph { animation: shake 0.3s; }
+.cell.pop .glyph { animation: pop 0.28s ease-out; }
+.cell.playing { background: var(--ink); color: var(--on-ink); }
 
-@keyframes pop { 0% { transform: scale(0.86); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
-@keyframes shake { 25% { transform: translateX(-3px); } 50% { transform: translateX(3px); } 75% { transform: translateX(-2px); } }
+@keyframes pop {
+  0% { transform: translateY(var(--dy)) scale(calc(var(--s) * 0.8)); }
+  60% { transform: translateY(var(--dy)) scale(calc(var(--s) * 1.1)); }
+}
+@keyframes shake {
+  25% { transform: translate(-3px, var(--dy)) scale(var(--s)); }
+  50% { transform: translate(3px, var(--dy)) scale(var(--s)); }
+  75% { transform: translate(-2px, var(--dy)) scale(var(--s)); }
+}
 
 .marks {
   position: absolute;
@@ -207,12 +214,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
   place-items: center;
-  font-size: calc(clamp(0.45rem, 1.7vw, 0.8rem) * var(--sym));
+  font-size: calc(2.7cqw * var(--sym));
   color: var(--ink-soft);
 }
 
 /* symbol pad, 3x3 like the board */
 .pad {
+  container-type: inline-size;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
@@ -230,7 +238,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   padding: 0;
   transition: transform 0.06s, box-shadow 0.06s, opacity 0.2s;
 }
-.key .glyph { font-size: calc(2.9rem * var(--sym)); }
+.key .glyph { font-size: calc(14cqw * var(--sym)); }
 .key .left {
   position: absolute;
   top: 6px;
@@ -404,14 +412,22 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .tips li { margin-bottom: 6px; }
 .keys { font-size: 0.78rem; color: var(--ink-soft); }
 
-@media (max-width: 760px) {
-  .game { grid-template-columns: 1fr; gap: 18px; max-width: 520px; margin: 0 auto; }
+@media (max-width: 860px) {
+  .game {
+    grid-template-columns: var(--board);
+    gap: 16px;
+    --board: max(260px, min(100%, 540px, calc(100svh - 390px)));
+  }
+  .side { width: var(--board); }
   .pad { gap: 8px; }
-  .key { aspect-ratio: 1.9; border-radius: 14px; }
-  .key .glyph { font-size: calc(2.3rem * var(--sym)); }
-  .tools { margin-top: 10px; }
-  .hint-line { margin-top: 12px; }
-  .cell .glyph { font-size: calc(7.6vw * var(--sym)); }
+  .key { aspect-ratio: auto; height: clamp(44px, 7svh, 60px); border-radius: 12px; box-shadow: 0 2px 0 var(--tile-edge); }
+  .key .glyph { font-size: calc(min(9cqw, 5.2svh) * var(--sym)); }
+  .key .left { top: 4px; right: 7px; font-size: 0.62rem; }
+  .tools { margin-top: 8px; gap: 4px; }
+  .tool { padding: 6px 0 5px; }
+  .hint-line { margin-top: 10px; }
+  .status { padding-bottom: 10px; }
+  .top { padding-top: 12px; }
 }
 
 @media (max-width: 420px) {
