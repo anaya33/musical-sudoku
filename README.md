@@ -1,59 +1,16 @@
-# 𝄞 Musical Sudoku
+<div align="center">
 
-Sudoku 
-**▶ Play it: [anaya33.github.io/musical-sudoku](https://anaya33.github.io/musical-sudoku/)**
+<img src="icons/icon-192.png" width="96" alt="">
 
----
+# Musical Sudoku
 
-## How to play
+Every symbol is a real note.
 
-Fill the grid so every **row**, **column** and **box** has each symbol once.
+[![Play now](https://img.shields.io/badge/%E2%96%B6%20Play%20now-1c1b19?style=for-the-badge)](https://anaya33.github.io/musical-sudoku/)
 
-| Symbol | Note | Sound |
-| :---: | :---: | --- |
-| 𝄞 Treble clef | G | one beat |
-| 𝄢 Bass clef | F | one beat |
-| 𝅗𝅥 Half note | B | two beats |
-| ♩ Quarter note | D | one beat |
-| ♪ Eighth note | E | two quick notes |
-| 𝅘𝅥𝅯 Sixteenth note | F | four fast notes |
-| ♯ Sharp | A | slides up |
-| ♭ Flat | C | slides down |
-| 𝄐 Fermata | E | holds |
+<img src="docs/img/treble-clef.png" width="40" alt="treble clef"> <img src="docs/img/bass-clef.png" width="40" alt="bass clef"> <img src="docs/img/half-note.png" width="40" alt="half note"> <img src="docs/img/quarter-note.png" width="40" alt="quarter note"> <img src="docs/img/eighth-note.png" width="40" alt="eighth note"> <img src="docs/img/sixteenth-note.png" width="40" alt="sixteenth note"> <img src="docs/img/sharp.png" width="40" alt="sharp"> <img src="docs/img/flat.png" width="40" alt="flat"> <img src="docs/img/fermata.png" width="40" alt="fermata">
 
-> The notes are the treble staff: lines **E G B D F**, spaces **F A C E**.
+| **🏠 Home** | [📖 How to play](docs/how-to-play.md) | [🧠 Algorithms](docs/algorithms.md) | [💻 Run it](docs/run-it.md) |
+| :---: | :---: | :---: | :---: |
 
-| Mode | What it's like |
-| --- | --- |
-| **Learn** | A quick walkthrough, then help with every move |
-| **Easy** | Simple logic. Wrong notes turn red |
-| **Medium** | Needs pairs and pointing tricks |
-| **Hard** | Needs advanced logic. No help until you break a rule |
-
-Grids come in **4×4**, **6×6** and **9×9**.
-
----
-
-## The algorithms
-
-| | Algorithm | Job |
-| :---: | --- | --- |
-| 1 | **Dancing Links** (Knuth's Algorithm X) | Proves every puzzle has exactly one answer |
-| 2 | **Bitmask backtracking** | Builds random full grids and double-checks #1 |
-| 3 | **Logic solver** | Solves like a person, grades difficulty, powers hints |
-
-A puzzle is made by removing symbols from a full grid, keeping only removals where #1 still finds one answer and #3 can still solve it without guessing.
-
----
-
-## Run it yourself
-
-```bash
-python3 -m http.server 8000
-```
-
-Then open `localhost:8000`. Run the tests with `npm test`.
-
----
-
-<sub>Sounds: FluidR3 GM soundfont via <a href="https://github.com/gleitz/midi-js-soundfonts">gleitz/midi-js-soundfonts</a> (CC BY 3.0)</sub>
+</div>
