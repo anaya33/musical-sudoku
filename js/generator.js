@@ -3,10 +3,10 @@
 // has exactly one solution and the logic solver can still finish it without guessing.
 // the finished puzzle is graded by the hardest technique it needs.
 
-import { geometry, shuffle } from './sudoku.js?v=12';
-import { dlxCount } from './solvers/dlx.js?v=12';
-import { randomFullGrid } from './solvers/backtrack.js?v=12';
-import { logicSolve } from './solvers/logic.js?v=12';
+import { geometry, shuffle } from './sudoku.js?v=13';
+import { dlxCount } from './solvers/dlx.js?v=13';
+import { randomFullGrid } from './solvers/backtrack.js?v=13';
+import { logicSolve } from './solvers/logic.js?v=13';
 
 // what each level means: which technique tiers it needs, and how many symbols it starts with
 export const LEVELS = {

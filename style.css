@@ -603,3 +603,21 @@ label.row { cursor: pointer; }
 
 /* four tools instead of five */
 .tools { grid-template-columns: repeat(4, 1fr); }
+
+/* win card */
+.win-time { margin: 0; font-size: 2.6rem; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+.win-best { margin: 0; font-size: 0.9rem; font-weight: 500; color: var(--ink-soft); }
+.win-best:empty { display: none; }
+.win-best.new { color: var(--ink); font-weight: 700; }
+.win .win-title { font-size: 1rem; font-weight: 500; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; }
+.win .win-stats { font-size: 0.82rem; }
+
+/* the ripple when a board is solved */
+.cell.wave { animation: wave 0.5s ease-out var(--wave-delay, 0ms) both; }
+@keyframes wave {
+  0% { background: var(--tile); color: inherit; }
+  40% { background: var(--ink); color: var(--on-ink); }
+  100% { background: var(--tile); }
+}
+
+#fillNotesBtn { margin-top: 4px; }

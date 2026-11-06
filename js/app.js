@@ -1,6 +1,6 @@
-import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=12';
-import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=12';
-import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=12';
+import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=13';
+import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=13';
+import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=13';
 
 const SAVE_KEY = 'musical-sudoku-v3';
 const $ = (id) => document.getElementById(id);
@@ -61,6 +61,7 @@ const settings = {
   timer: true,
   sound: true,
   walkthrough: false, // seen the Learn walkthrough already
+  best: {}, // fastest time in seconds per "size-level", e.g. "9-hard"
 };
 const MATCHING = true; // highlight every copy of the selected symbol
 const CELEBRATE = true; // play finished rows, columns and boxes
@@ -172,7 +173,7 @@ const jobs = new Map();
 function makePuzzle(n, difficulty) {
   if (!worker && typeof Worker !== 'undefined') {
     try {
-      worker = new Worker(new URL('./worker.js?v=12', import.meta.url), { type: 'module' });
+      worker = new Worker(new URL('./worker.js?v=13', import.meta.url), { type: 'module' });
       worker.onmessage = (e) => { jobs.get(e.data.id)?.(e.data.result); jobs.delete(e.data.id); };
       worker.onerror = () => { worker = false; };
     } catch { worker = false; }
@@ -181,7 +182,7 @@ function makePuzzle(n, difficulty) {
     const id = ++jobId;
     return new Promise((res) => { jobs.set(id, res); worker.postMessage({ id, n, difficulty }); });
   }
-  return import('./generator.js?v=12').then((m) => m.generate(n, difficulty));
+  return import('./generator.js?v=13').then((m) => m.generate(n, difficulty));
 }
 
 async function newGame() {
@@ -312,6 +313,16 @@ function place(i, v, { fromHint = false } = {}) {
   checkWin();
 }
 
+function fillNotes() {
+  if (game.won) return;
+  snapshot();
+  for (let i = 0; i < geo.total; i++) game.marks[i] = game.grid[i] ? 0 : candidateMask(geo, game.grid, i);
+  audio.tick();
+  save();
+  render();
+  say('Every square now shows the symbols that could still go there.');
+}
+
 function erase() {
   if (selected < 0 || isGiven(selected) || game.won) return;
   if (!game.grid[selected] && !game.marks[selected]) return;
@@ -432,9 +443,28 @@ function checkWin() {
   game.won = true;
   selected = -1;
   hint = null;
+  hideCoach();
+  if (game.difficulty !== 'tutorial') {
+    const key = `${game.n}-${game.difficulty}`;
+    const prev = settings.best[key];
+    game.result = { best: Math.min(prev ?? Infinity, game.elapsed), isNew: prev === undefined || game.elapsed < prev, first: prev === undefined };
+    settings.best[key] = game.result.best;
+  }
   save();
   render();
-  if (game.difficulty !== 'tutorial') setTimeout(playBoard, 600);
+  wave();
+  if (game.difficulty !== 'tutorial') setTimeout(playBoard, 300 + game.n * 2 * 40);
+}
+
+// a ripple across the board from the top left corner
+function wave() {
+  cells.forEach((el, i) => {
+    el.style.setProperty('--wave-delay', `${(geo.rowOf(i) + geo.colOf(i)) * 40}ms`);
+    el.classList.remove('wave');
+    void el.offsetWidth;
+    el.classList.add('wave');
+    setTimeout(() => el.classList.remove('wave'), 900 + (geo.rowOf(i) + geo.colOf(i)) * 40);
+  });
 }
 
 // ---------- playback ----------
@@ -658,7 +688,7 @@ function render() {
   for (let i = 0; i < geo.total; i++) {
     const el = cells[i];
     const v = game.grid[i];
-    const keep = ['playing', 'pop', 'shake', 'why', 'coach-target'].filter((c) => el.classList.contains(c));
+    const keep = ['playing', 'pop', 'shake', 'why', 'coach-target', 'wave'].filter((c) => el.classList.contains(c));
     el.className = 'cell';
     el.classList.add(...keep);
     if (v) {
@@ -696,9 +726,15 @@ function render() {
   $('controls').hidden = game.won;
   $('win').hidden = !game.won || game.difficulty === 'tutorial';
   if (game.won) {
-    const tricks = game.techniques.length ? ` · used: ${game.techniques.map(techniqueName).join(', ')}` : '';
-    $('winStats').textContent = `${fmt(game.elapsed)} · ${game.mistakes} mistakes · ${game.hints} hints${tricks}`;
+    const r = game.result;
+    $('winTime').textContent = fmt(game.elapsed);
+    $('winBest').textContent = !r ? '' : r.first ? 'First win at this level' : r.isNew ? 'New best time!' : `Best ${fmt(r.best)}`;
+    $('winBest').classList.toggle('new', !!r?.isNew && !r.first);
+    const plural = (k, w) => `${k} ${w}${k === 1 ? '' : 's'}`;
+    $('winStats').textContent = `${n}×${n} ${m.name} · ${plural(game.mistakes, 'mistake')} · ${plural(game.hints, 'hint')}`;
   }
+  $('learnNote').hidden = game.difficulty !== 'learn' && game.difficulty !== 'tutorial';
+  $('fillNotesBtn').hidden = !pencil || game.won;
   $('levelLabel').textContent = game.difficulty === 'tutorial' ? 'Learn · walkthrough' : `${n}×${n} · ${m.name}`;
   $('mistakes').textContent = `${game.mistakes} mistake${game.mistakes === 1 ? '' : 's'}`;
   $('timer').textContent = fmt(game.elapsed);
@@ -779,6 +815,7 @@ $('winNew').addEventListener('click', newGame);
 $('winPlay').addEventListener('click', () => { stopPlayback(); playBoard(); });
 $('pencilBtn').addEventListener('click', () => { pencil = !pencil; render(); });
 $('eraseBtn').addEventListener('click', erase);
+$('fillNotesBtn').addEventListener('click', fillNotes);
 $('undoBtn').addEventListener('click', undo);
 $('hintBtn').addEventListener('click', giveHint);
 $('settingsBtn').addEventListener('click', () => $('settings').showModal());
