@@ -1,7 +1,6 @@
 # 𝄞 Musical Sudoku
 
-Sudoku, but every symbol is a real note.
-
+Sudoku 
 **▶ Play it: [anaya33.github.io/musical-sudoku](https://anaya33.github.io/musical-sudoku/)**
 
 ---
