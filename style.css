@@ -275,7 +275,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   font-weight: 500;
 }
 .tool svg { width: 24px; height: 24px; }
-.tool:hover { background: var(--peer); }
+@media (hover: hover) { .tool:hover { background: var(--peer); } }
 .tool[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
 
 .hint-line.bad { color: var(--wrong); }
@@ -621,3 +621,100 @@ label.row { cursor: pointer; }
 }
 
 #fillNotesBtn { margin-top: 4px; }
+
+/* ---------- phones ---------- */
+
+html { -webkit-text-size-adjust: 100%; }
+body { overscroll-behavior: none; }
+/* no double-tap zoom, text selection or long-press menus while playing */
+button, .cell, .key, .tool, .board { touch-action: manipulation; }
+.app, .sheet { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* everything you tap is at least 44pt, apple's minimum */
+.icon-btn { width: 44px; height: 44px; }
+.tool { min-height: 52px; justify-content: center; }
+.text-btn { min-height: 44px; padding: 0 6px; }
+.picker select { font-size: 16px; min-height: 44px; } /* 16px stops iphones zooming in */
+.row .seg button { min-height: 36px; }
+
+@media (max-width: 860px) {
+  .key { height: clamp(50px, 7.2svh, 62px); }
+}
+
+@media (max-width: 420px) {
+  body { padding-left: 10px; padding-right: 10px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .tools { margin-top: 6px; }
+  .side { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* phones in portrait: symbols in one row under a full-width board, like sudoku apps,
+   so the squares stay big enough for fingers */
+@media (max-width: 600px) and (orientation: portrait) {
+  .game { --board: max(280px, min(100%, 520px, calc(100svh - 290px))); gap: 12px; }
+  .pad, .pad[data-n="4"] { grid-template-columns: repeat(var(--keys, 9), 1fr); gap: 4px; }
+  .key { height: 58px; border-radius: 10px; box-shadow: 0 2px 0 var(--tile-edge); }
+  .key .glyph { font-size: calc(min(64cqw / var(--keys, 9), 2.3rem) * var(--sym)); }
+  .key .left { top: 3px; right: 4px; font-size: 0.58rem; }
+  .tools { margin-top: 4px; }
+  .hint-line { margin-top: 4px; font-size: 0.8rem; }
+
+  /* fill the screen: board in the middle, symbols and tools down by your thumb */
+  body { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .app { display: flex; flex-direction: column; min-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 8px); }
+  .game { flex: 1; display: flex; flex-direction: column; align-items: center; }
+  .board-wrap { margin: auto 0; }
+  .side { margin-top: auto; }
+  .key { height: clamp(56px, 7.5svh, 68px); }
+}
+
+/* settings and how-to-play rise from the bottom, like a phone's own sheets */
+@media (max-width: 600px) {
+  .sheet {
+    width: 100%;
+    max-width: 100%;
+    margin: auto 0 0;
+    border-radius: 22px 22px 0 0;
+    border-bottom: none;
+    max-height: 90svh;
+    padding: 22px 16px calc(24px + env(safe-area-inset-bottom));
+  }
+  .sheet[open] { animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .sheet::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 38px;
+    height: 5px;
+    margin-left: -19px;
+    border-radius: 3px;
+    background: var(--tile-edge);
+  }
+}
+@keyframes sheet-up { from { transform: translateY(100%); } }
+
+/* phone turned sideways: board on the left, keys on the right */
+@media (orientation: landscape) and (max-height: 520px) {
+  .top { padding-top: 6px; padding-bottom: 2px; }
+  .status { padding-bottom: 6px; }
+  .game {
+    grid-template-columns: var(--board) minmax(220px, 320px);
+    gap: 20px;
+    max-width: none;
+    --board: calc(100svh - 112px);
+  }
+  .side { width: auto; }
+  .key { height: clamp(40px, 13svh, 56px); }
+  .hint-line { display: none; }
+}
+
+/* start screen */
+.start { max-width: 420px; }
+.start-head { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 4px 0 16px; }
+.start-head .logo { font-size: 2.6rem; line-height: 1.7; }
+.start-head h2 { font-size: 1.4rem; }
+.start .list { margin-bottom: 16px; }
+.start .btn { min-height: 52px; font-size: 1rem; }
+.start .btn + .btn { margin-top: 8px; }
+.start .link-btn { margin-top: 12px; min-height: 44px; }

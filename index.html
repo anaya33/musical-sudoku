@@ -5,12 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Musical Sudoku</title>
   <meta name="description" content="Sudoku with music symbols. Every symbol has a sound.">
-  <meta name="theme-color" content="#f3f0e8">
+  <meta name="theme-color" content="#f3f0e8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#161614" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Sudoku">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Noto+Music&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -83,6 +90,34 @@
     </div>
   </div>
 
+  <dialog id="start" class="sheet start" aria-labelledby="startTitle">
+    <div class="start-head">
+      <span class="logo" aria-hidden="true">&#x1D11E;</span>
+      <h2 id="startTitle">Musical Sudoku</h2>
+    </div>
+    <div class="list">
+      <div class="row">
+        <span>Grid</span>
+        <div class="seg" data-start="grid">
+          <button data-value="4">4×4</button>
+          <button data-value="6">6×6</button>
+          <button data-value="9">9×9</button>
+        </div>
+      </div>
+      <div class="row">
+        <span>Level</span>
+        <div class="seg" data-start="difficulty">
+          <button data-value="easy">Easy</button>
+          <button data-value="medium">Medium</button>
+          <button data-value="hard">Hard</button>
+        </div>
+      </div>
+    </div>
+    <button class="btn primary wide start-play" id="startPlay">Play</button>
+    <button class="btn wide" id="startContinue" hidden>Continue my puzzle</button>
+    <button class="link-btn" id="startLearn">New here? Learn how to play</button>
+  </dialog>
+
   <dialog id="settings" class="sheet" aria-labelledby="settingsTitle">
     <div class="sheet-head">
       <h2 id="settingsTitle">Settings</h2>
@@ -142,6 +177,6 @@
     <p class="credit">Sounds: FluidR3 GM soundfont (CC BY 3.0)</p>
   </dialog>
 
-  <script type="module" src="js/app.js?v=13"></script>
+  <script type="module" src="js/app.js?v=14"></script>
 </body>
 </html>

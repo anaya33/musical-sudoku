@@ -137,8 +137,15 @@ export class Audio {
   // browsers only let it make sound after a tap or key, which unlock() handles
   init() {
     if (!this.ctx) {
+      // tell the phone this sound should mix with other audio (a call, music) instead of
+      // being cut off by it. supported on iphones with ios 17+, ignored elsewhere
+      try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch { }
       const AC = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AC({ latencyHint: 'interactive' });
+      // a call or another app can pause the sound. wake it up again as soon as we can
+      this.ctx.onstatechange = () => { if (this.ctx.state === 'interrupted') this.wake(); };
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) this.wake(); });
+      window.addEventListener('focus', () => this.wake());
       this.master = this.ctx.createGain();
       this.master.gain.value = this.muted ? 0 : this.volume;
       const comp = this.ctx.createDynamicsCompressor();
@@ -157,7 +164,11 @@ export class Audio {
 
   unlock() {
     this.init();
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    this.wake();
+  }
+
+  wake() {
+    if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') this.ctx.resume().catch(() => {});
   }
 
   makeImpulse(seconds) {
@@ -194,7 +205,9 @@ export class Audio {
     this.unlock();
     // the very first tap can land while the context is still waking up, so wait for it
     if (this.ctx.state !== 'running') {
-      this.ctx.resume().then(() => this.play(symbol, opts));
+      // if waking takes too long (say a call is still going) the moment has passed, so skip it
+      const asked = performance.now();
+      this.ctx.resume().then(() => { if (performance.now() - asked < 800) this.play(symbol, opts); }).catch(() => {});
       return;
     }
     const { when = 0, beat = 0.34, gain = 0.6, sour = false, plain = false } = opts;

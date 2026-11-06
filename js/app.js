@@ -1,6 +1,6 @@
-import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=13';
-import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=13';
-import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=13';
+import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=14';
+import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=14';
+import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=14';
 
 const SAVE_KEY = 'musical-sudoku-v3';
 const $ = (id) => document.getElementById(id);
@@ -90,6 +90,7 @@ function save() {
 const symOf = (v) => SETS[game.n][v - 1];
 const nameOf = (v) => SYMBOLS[symOf(v) - 1].name.toLowerCase();
 const sound = (v, opts) => audio.play(symOf(v), opts);
+const buzz = (pattern) => { try { navigator.vibrate?.(pattern); } catch { } };
 
 const glyph = (id) => {
   const f = fit[id - 1];
@@ -126,6 +127,7 @@ function build() {
   const pad = $('pad');
   pad.innerHTML = '';
   pad.dataset.n = n;
+  pad.style.setProperty('--keys', n);
   keys = SETS[n].map((id, k) => {
     const v = k + 1;
     const el = document.createElement('button');
@@ -173,7 +175,7 @@ const jobs = new Map();
 function makePuzzle(n, difficulty) {
   if (!worker && typeof Worker !== 'undefined') {
     try {
-      worker = new Worker(new URL('./worker.js?v=13', import.meta.url), { type: 'module' });
+      worker = new Worker(new URL('./worker.js?v=14', import.meta.url), { type: 'module' });
       worker.onmessage = (e) => { jobs.get(e.data.id)?.(e.data.result); jobs.delete(e.data.id); };
       worker.onerror = () => { worker = false; };
     } catch { worker = false; }
@@ -182,7 +184,7 @@ function makePuzzle(n, difficulty) {
     const id = ++jobId;
     return new Promise((res) => { jobs.set(id, res); worker.postMessage({ id, n, difficulty }); });
   }
-  return import('./generator.js?v=13').then((m) => m.generate(n, difficulty));
+  return import('./generator.js?v=14').then((m) => m.generate(n, difficulty));
 }
 
 async function newGame() {
@@ -293,6 +295,7 @@ function place(i, v, { fromHint = false } = {}) {
 
   const wrong = isWrong(i);
   if (wrong) game.mistakes++;
+  buzz(wrong ? [30, 50, 30] : 10);
   sound(v, { sour: wrong });
   if (wrong) audio.wrong();
   save();
@@ -453,6 +456,7 @@ function checkWin() {
   save();
   render();
   wave();
+  buzz([20, 40, 20, 40, 80]);
   if (game.difficulty !== 'tutorial') setTimeout(playBoard, 300 + game.n * 2 * 40);
 }
 
@@ -745,7 +749,7 @@ function render() {
 const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 setInterval(() => {
-  if (!game || game.won || busy || document.hidden || game.difficulty === 'tutorial') return;
+  if (!game || game.won || busy || document.hidden || game.difficulty === 'tutorial' || $('start').open) return;
   game.elapsed++;
   $('timer').textContent = fmt(game.elapsed);
   if (game.elapsed % 5 === 0) save();
@@ -830,6 +834,36 @@ document.addEventListener('pointerdown', (e) => {
   if (!$('coach').querySelector('button').hidden) hideCoach();
 });
 
+const phoneSheets = matchMedia('(max-width: 600px)');
+document.querySelectorAll('dialog.sheet').forEach((d) => {
+  let startY = null, dy = 0;
+  d.addEventListener('pointerdown', (e) => {
+    // only from the top strip, so lists and sliders inside still work
+    if (!phoneSheets.matches || e.clientY - d.getBoundingClientRect().top > 64 || e.target.closest('button')) return;
+    startY = e.clientY; dy = 0;
+    d.style.transition = 'none';
+    d.setPointerCapture(e.pointerId);
+  });
+  d.addEventListener('pointermove', (e) => {
+    if (startY === null) return;
+    dy = Math.max(0, e.clientY - startY);
+    d.style.transform = `translateY(${dy}px)`;
+  });
+  const end = () => {
+    if (startY === null) return;
+    startY = null;
+    d.style.transition = 'transform 0.2s ease-out';
+    if (dy > 90) {
+      d.style.transform = 'translateY(100%)';
+      setTimeout(() => { d.close(); d.style.transform = ''; d.style.transition = ''; }, 180);
+    } else {
+      d.style.transform = '';
+    }
+  };
+  d.addEventListener('pointerup', end);
+  d.addEventListener('pointercancel', end);
+});
+
 // close sheets with their buttons or by tapping the backdrop
 document.querySelectorAll('dialog').forEach((d) => {
   d.addEventListener('click', (e) => {
@@ -863,6 +897,49 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ---------- start screen: pick a size and level every time the game opens ----------
+
+const pick = { grid: settings.grid, difficulty: settings.difficulty };
+
+function showStart() {
+  pick.grid = settings.grid;
+  pick.difficulty = MODES[settings.difficulty] && settings.difficulty !== 'learn' && settings.difficulty !== 'tutorial' ? settings.difficulty : 'easy';
+  drawStart();
+  const inProgress = game && !game.won && hasProgress() && game.difficulty !== 'tutorial';
+  $('startContinue').hidden = !inProgress;
+  $('startPlay').textContent = inProgress ? 'New puzzle' : 'Play';
+  $('startPlay').classList.toggle('primary', !inProgress);
+  $('startContinue').classList.toggle('primary', inProgress);
+  $('start').showModal();
+}
+
+function drawStart() {
+  document.querySelectorAll('[data-start]').forEach((seg) => {
+    for (const b of seg.children) b.setAttribute('aria-pressed', String(b.dataset.value === pick[seg.dataset.start]));
+  });
+}
+
+document.querySelectorAll('[data-start]').forEach((seg) => {
+  seg.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    pick[seg.dataset.start] = b.dataset.value;
+    drawStart();
+  });
+});
+
+$('startPlay').addEventListener('click', () => {
+  $('start').close();
+  const same = game && Number(pick.grid) === game.n && pick.difficulty === game.difficulty && !hasProgress() && !game.won;
+  settings.grid = pick.grid;
+  settings.difficulty = pick.difficulty;
+  applySettings();
+  save();
+  if (!same) newGame();
+});
+$('startContinue').addEventListener('click', () => $('start').close());
+$('startLearn').addEventListener('click', () => { $('start').close(); startLearn(); });
+
 // ---------- start ----------
 
 drawLegend();
@@ -878,6 +955,12 @@ if (!saved) {
   render();
 } else {
   newGame();
+}
+
+showStart();
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 document.fonts?.load('1em "Noto Music"', SYMBOLS.map((s) => s.glyph).join('')).then(() => {
