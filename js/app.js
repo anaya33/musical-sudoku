@@ -1,6 +1,6 @@
-import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=15';
-import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=15';
-import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=15';
+import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=16';
+import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=16';
+import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=16';
 
 const SAVE_KEY = 'musical-sudoku-v3';
 const $ = (id) => document.getElementById(id);
@@ -27,26 +27,9 @@ const MODES = {
 };
 const mode = () => MODES[game.difficulty] ?? MODES.easy;
 
-// music glyphs come in very different sizes and heights, so each one is measured
-// and scaled to a target height (in em), then centred in its tile
-const TARGET = [0.92, 0.6, 0.78, 0.78, 0.78, 0.78, 0.62, 0.66, 0.42];
-let fit = TARGET.map(() => ({ s: 1, dy: 0 }));
-
-function measureGlyphs() {
-  const ctx = document.createElement('canvas').getContext('2d');
-  const size = 200;
-  ctx.font = `${size}px "Noto Music"`;
-  fit = SYMBOLS.map((sym, n) => {
-    const m = ctx.measureText(sym.glyph);
-    const h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
-    if (!h || !m.fontBoundingBoxAscent) return { s: 1, dy: 0 };
-    const s = TARGET[n] / (h / size);
-    // with line-height 1 the baseline sits here, measured from the top of the 1em box
-    const baseline = 0.5 + (m.fontBoundingBoxAscent - m.fontBoundingBoxDescent) / 2 / size;
-    const centre = baseline - (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2 / size;
-    return { s, dy: (0.5 - centre) * s };
-  });
-}
+// each symbol is a small image (symbols/*.png) used as a mask and filled with the text colour,
+// so it shows on every phone without needing a music font
+const FILES = ['treble-clef', 'bass-clef', 'half-note', 'quarter-note', 'eighth-note', 'sixteenth-note', 'sharp', 'flat', 'fermata'];
 
 const audio = new Audio();
 
@@ -92,10 +75,7 @@ const nameOf = (v) => SYMBOLS[symOf(v) - 1].name.toLowerCase();
 const sound = (v, opts) => audio.play(symOf(v), opts);
 const buzz = (pattern) => { try { navigator.vibrate?.(pattern); } catch { } };
 
-const glyph = (id) => {
-  const f = fit[id - 1];
-  return `<span class="glyph sym" style="--s:${f.s.toFixed(3)};--dy:${f.dy.toFixed(3)}em">${SYMBOLS[id - 1].glyph}</span>`;
-};
+const glyph = (id) => `<span class="glyph" style="--img:url(symbols/${FILES[id - 1]}.png)" aria-hidden="true"></span>`;
 
 // ---------- building the board for the current size ----------
 
@@ -175,7 +155,7 @@ const jobs = new Map();
 function makePuzzle(n, difficulty) {
   if (!worker && typeof Worker !== 'undefined') {
     try {
-      worker = new Worker(new URL('./worker.js?v=15', import.meta.url), { type: 'module' });
+      worker = new Worker(new URL('./worker.js?v=16', import.meta.url), { type: 'module' });
       worker.onmessage = (e) => { jobs.get(e.data.id)?.(e.data.result); jobs.delete(e.data.id); };
       worker.onerror = () => { worker = false; };
     } catch { worker = false; }
@@ -184,7 +164,7 @@ function makePuzzle(n, difficulty) {
     const id = ++jobId;
     return new Promise((res) => { jobs.set(id, res); worker.postMessage({ id, n, difficulty }); });
   }
-  return import('./generator.js?v=15').then((m) => m.generate(n, difficulty));
+  return import('./generator.js?v=16').then((m) => m.generate(n, difficulty));
 }
 
 async function newGame() {
@@ -703,8 +683,8 @@ function render() {
       el.setAttribute('aria-label', `${SYMBOLS[symOf(v) - 1].name}${isGiven(i) ? ', given' : ''}`);
     } else {
       const marks = game.marks[i];
-      el.innerHTML = marks ? '<div class="marks sym">' + SETS[n].map((id, k) =>
-        `<span>${marks & (1 << (k + 1)) ? SYMBOLS[id - 1].glyph : ''}</span>`).join('') + '</div>' : '';
+      el.innerHTML = marks ? '<div class="marks">' + SETS[n].map((id, k) =>
+        `<span>${marks & (1 << (k + 1)) ? glyph(id) : ''}</span>`).join('') + '</div>' : '';
       el.setAttribute('aria-label', 'empty');
     }
     if (i === selected) el.classList.add('selected');
@@ -808,13 +788,8 @@ $('volume').addEventListener('change', () => audio.play(4));
 // ---------- controls ----------
 
 // replay = a new puzzle. if you're partway through, check first
-$('replayBtn').addEventListener('click', () => {
-  if (game && hasProgress() && !game.won && game.difficulty !== 'tutorial') {
-    showCoach($('replayBtn'), 'Start a new puzzle? This one will be cleared.', { action: 'New puzzle', onAction: newGame, timeout: 6000 });
-  } else {
-    newGame();
-  }
-});
+// replay opens the size and level picker, which also offers to keep going
+$('replayBtn').addEventListener('click', () => { hideCoach(); showStart(); });
 $('winNew').addEventListener('click', newGame);
 $('winPlay').addEventListener('click', () => { stopPlayback(); playBoard(); });
 $('pencilBtn').addEventListener('click', () => { pencil = !pencil; render(); });
@@ -870,6 +845,17 @@ document.querySelectorAll('dialog').forEach((d) => {
     if (e.target === d || e.target.closest('[data-close]')) d.close();
   });
 });
+
+// the real visible height, for older phones that don't support svh units
+const setVH = () => document.documentElement.style.setProperty('--vh', `${window.innerHeight / 100}px`);
+setVH();
+window.addEventListener('resize', setVH);
+window.addEventListener('orientationchange', () => setTimeout(setVH, 200));
+
+// no pinch or double-tap zoom: it's a game board, not a page
+for (const t of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(t, (e) => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
 
 // any first touch wakes the audio up so the first sound isn't lost
 document.addEventListener('pointerdown', () => audio.unlock(), { capture: true });
@@ -957,14 +943,12 @@ if (!saved) {
   newGame();
 }
 
-showStart();
+let seenThisVisit = false;
+try { seenThisVisit = sessionStorage.getItem('ms-started') === '1'; sessionStorage.setItem('ms-started', '1'); } catch { }
+if (!seenThisVisit) showStart();
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
-document.fonts?.load('1em "Noto Music"', SYMBOLS.map((s) => s.glyph).join('')).then(() => {
-  measureGlyphs();
-  drawLegend();
-  render();
-});
+

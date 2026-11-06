@@ -1,7 +1,7 @@
 // keeps the game playable offline once it has been opened.
 // files with ?v= in their name never change, so they come straight from the cache.
 // the page itself always tries the network first so updates show up.
-const V = '15';
+const V = '16';
 const CACHE = `musical-sudoku-${V}`;
 const NOTES = ['E4', 'F4', 'Gb4', 'G4', 'Ab4', 'A4', 'Bb4', 'B4', 'C5', 'Db5', 'D5', 'Eb5', 'E5', 'F5', 'Gb5', 'G5', 'Ab5', 'A5', 'Bb5', 'B5', 'C6', 'Db6', 'D6'];
 const CORE = [
@@ -9,6 +9,7 @@ const CORE = [
   `style.css?v=${V}`, `js/app.js?v=${V}`, `js/audio.js?v=${V}`, `js/sudoku.js?v=${V}`,
   `js/generator.js?v=${V}`, `js/worker.js?v=${V}`,
   `js/solvers/dlx.js?v=${V}`, `js/solvers/backtrack.js?v=${V}`, `js/solvers/logic.js?v=${V}`,
+  ...['treble-clef', 'bass-clef', 'half-note', 'quarter-note', 'eighth-note', 'sixteenth-note', 'sharp', 'flat', 'fermata'].map((f) => `symbols/${f}.png`),
   ...NOTES.map((n) => `samples/acoustic_grand_piano/${n}.mp3`),
 ];
 

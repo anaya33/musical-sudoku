@@ -35,6 +35,11 @@ Three solvers that check each other, in [`js/solvers/`](js/solvers/).
 | Medium | Naked pair, pointing pair, box/line reduction |
 | Hard | Hidden pair, naked triple, hidden triple, X-wing |
 
+## References
+
+- Donald E. Knuth. **Dancing Links.** *Millennial Perspectives in Computer Science*, 2000, pp. 187–214. [arXiv:cs/0011047](https://arxiv.org/abs/cs/0011047)
+- Donald E. Knuth. ***The Art of Computer Programming*, Volume 4B: Combinatorial Algorithms, Part 2.** Addison-Wesley, 2022. Section 7.2.2.1, "Dancing links."
+
 ## Making a change
 
 1. Fork the repo and make a branch

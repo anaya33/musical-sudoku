@@ -92,12 +92,15 @@ body::before {
   margin: 0 auto;
 }
 
-.sym { font-family: "Noto Music", "Apple Symbols", "Segoe UI Symbol", serif; font-weight: 400; }
 .glyph {
   display: inline-block;
+  width: 1em;
   height: 1em;
-  line-height: 1;
-  transform: translateY(var(--dy, 0)) scale(var(--s, 1));
+  flex: none;
+  vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask: var(--img) center / contain no-repeat;
+  mask: var(--img) center / contain no-repeat;
 }
 
 /* header */
@@ -108,7 +111,7 @@ body::before {
   padding: 18px 0 6px;
 }
 .brand { display: flex; align-items: center; gap: 10px; }
-.logo { font-family: "Noto Music", serif; font-size: 1.9rem; line-height: 1; }
+.logo { font-size: 2.6rem; margin: -4px -6px; }
 h1 { font-size: 1.35rem; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
 .top-actions { display: flex; gap: 8px; }
 
@@ -147,7 +150,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   gap: 32px;
   align-items: start;
   justify-content: center;
-  --board: min(520px, calc(100svh - 170px), calc(100vw - 380px));
+  --board: min(520px, calc(calc(100 * var(--vh, 1vh)) - 170px), calc(100vw - 380px));
 }
 .board { width: 100%; }
 
@@ -187,7 +190,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   overflow: hidden;
   min-height: 0;
 }
-.cell .glyph { font-size: calc(72cqw / var(--n, 9) * var(--sym)); }
+.cell .glyph { font-size: calc(min(66vw, 370px) / var(--n, 9) * var(--sym)); font-size: calc(72cqw / var(--n, 9) * var(--sym)); }
 .cell.given { color: var(--ink); }
 .cell.user { color: var(--ink-soft); }
 .cell.peer { background: var(--peer); }
@@ -199,15 +202,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .cell.pop .glyph { animation: pop 0.28s ease-out; }
 .cell.playing { background: var(--ink); color: var(--on-ink); }
 
-@keyframes pop {
-  0% { transform: translateY(var(--dy)) scale(calc(var(--s) * 0.8)); }
-  60% { transform: translateY(var(--dy)) scale(calc(var(--s) * 1.1)); }
-}
-@keyframes shake {
-  25% { transform: translate(-3px, var(--dy)) scale(var(--s)); }
-  50% { transform: translate(3px, var(--dy)) scale(var(--s)); }
-  75% { transform: translate(-2px, var(--dy)) scale(var(--s)); }
-}
+@keyframes pop { 0% { transform: scale(0.8); } 60% { transform: scale(1.1); } 100% { transform: scale(1); } }
+@keyframes shake { 25% { transform: translateX(-3px); } 50% { transform: translateX(3px); } 75% { transform: translateX(-2px); } }
 
 .marks {
   position: absolute;
@@ -216,6 +212,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   grid-template-columns: repeat(var(--bc, 3), 1fr);
   grid-template-rows: repeat(var(--br, 3), 1fr);
   place-items: center;
+  font-size: calc(min(22vw, 125px) / var(--n, 9) * var(--sym));
   font-size: calc(24cqw / var(--n, 9) * var(--sym));
   color: var(--ink-soft);
 }
@@ -240,7 +237,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   padding: 0;
   transition: transform 0.06s, box-shadow 0.06s, opacity 0.2s;
 }
-.key .glyph { font-size: calc(14cqw * var(--sym)); }
+.key .glyph { font-size: calc(2.6rem * var(--sym)); font-size: calc(14cqw * var(--sym)); }
 .key .left {
   position: absolute;
   top: 6px;
@@ -412,7 +409,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   border-radius: 12px;
   box-shadow: 0 2px 0 var(--tile-edge);
 }
-.legend .glyph { font-size: 2.2rem; margin-bottom: 2px; }
+.legend .glyph { font-size: 2.4rem; margin-bottom: 2px; }
 .legend b { font-size: 0.75rem; font-weight: 700; }
 .legend small { font-size: 0.68rem; color: var(--ink-soft); text-align: center; line-height: 1.2; }
 .legend button:active { background: var(--ink); color: var(--on-ink); }
@@ -424,12 +421,12 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   .game {
     grid-template-columns: var(--board);
     gap: 16px;
-    --board: max(260px, min(100%, 480px, calc(100svh - 390px)));
+    --board: max(260px, min(100%, 480px, calc(calc(100 * var(--vh, 1vh)) - 390px)));
   }
   .side { width: var(--board); }
   .pad { gap: 8px; }
-  .key { aspect-ratio: auto; height: clamp(44px, 7svh, 60px); border-radius: 12px; box-shadow: 0 2px 0 var(--tile-edge); }
-  .key .glyph { font-size: calc(min(9cqw, 5.2svh) * var(--sym)); }
+  .key { aspect-ratio: auto; height: clamp(44px, calc(7 * var(--vh, 1vh)), 60px); border-radius: 12px; box-shadow: 0 2px 0 var(--tile-edge); }
+  .key .glyph { font-size: calc(min(9cqw, calc(5.2 * var(--vh, 1vh))) * var(--sym)); }
   .key .left { top: 4px; right: 7px; font-size: 0.62rem; }
   .pad[data-n="4"] { grid-template-columns: repeat(4, 1fr); }
   .tools { margin-top: 8px; gap: 4px; }
@@ -445,7 +442,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 
 @media (max-width: 420px) {
   h1 { font-size: 1.1rem; }
-  .logo { font-size: 1.5rem; }
+  .logo { font-size: 2.2rem; }
   .top-actions { gap: 6px; }
   .icon-btn { width: 38px; height: 38px; border-radius: 11px; }
   .icon-btn svg { width: 20px; height: 20px; }
@@ -492,7 +489,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   color: var(--ink-soft);
 }
 .busy[hidden] { display: none; }
-.busy .logo { font-size: 2.6rem; animation: bob 1s ease-in-out infinite alternate; }
+.busy .logo { font-size: 3rem; animation: bob 1s ease-in-out infinite alternate; }
 @keyframes bob { to { transform: translateY(-6px); } }
 
 /* symbols that clash with a placed one (hard mode shows these instead of solution checks) */
@@ -624,7 +621,7 @@ label.row { cursor: pointer; }
 
 /* ---------- phones ---------- */
 
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; touch-action: pan-x pan-y; }
 body { overscroll-behavior: none; }
 /* no double-tap zoom, text selection or long-press menus while playing */
 button, .cell, .key, .tool, .board { touch-action: manipulation; }
@@ -638,7 +635,7 @@ button, .cell, .key, .tool, .board { touch-action: manipulation; }
 .row .seg button { min-height: 36px; }
 
 @media (max-width: 860px) {
-  .key { height: clamp(50px, 7.2svh, 62px); }
+  .key { height: clamp(50px, calc(7.2 * var(--vh, 1vh)), 62px); }
 }
 
 @media (max-width: 420px) {
@@ -651,21 +648,21 @@ button, .cell, .key, .tool, .board { touch-action: manipulation; }
 /* phones in portrait: symbols in one row under a full-width board, like sudoku apps,
    so the squares stay big enough for fingers */
 @media (max-width: 600px) and (orientation: portrait) {
-  .game { --board: max(280px, min(100%, 520px, calc(100svh - 290px))); gap: 12px; }
+  .game { --board: max(280px, min(100%, 520px, calc(calc(100 * var(--vh, 1vh)) - 290px))); gap: 12px; }
   .pad, .pad[data-n="4"] { grid-template-columns: repeat(var(--keys, 9), 1fr); gap: 4px; }
   .key { height: 58px; border-radius: 10px; box-shadow: 0 2px 0 var(--tile-edge); }
-  .key .glyph { font-size: calc(min(64cqw / var(--keys, 9), 2.3rem) * var(--sym)); }
+  .key .glyph { font-size: calc(min(62vw / var(--keys, 9), 2.3rem) * var(--sym)); font-size: calc(min(64cqw / var(--keys, 9), 2.3rem) * var(--sym)); }
   .key .left { top: 3px; right: 4px; font-size: 0.58rem; }
   .tools { margin-top: 4px; }
   .hint-line { margin-top: 4px; font-size: 0.8rem; }
 
   /* fill the screen: board in the middle, symbols and tools down by your thumb */
   body { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
-  .app { display: flex; flex-direction: column; min-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 8px); }
+  .app { display: flex; flex-direction: column; min-height: calc(calc(100 * var(--vh, 1vh)) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 8px); }
   .game { flex: 1; display: flex; flex-direction: column; align-items: center; }
   .board-wrap { margin: auto 0; }
   .side { margin-top: auto; }
-  .key { height: clamp(56px, 7.5svh, 68px); }
+  .key { height: clamp(56px, calc(7.5 * var(--vh, 1vh)), 68px); }
 }
 
 /* settings and how-to-play rise from the bottom, like a phone's own sheets */
@@ -676,7 +673,7 @@ button, .cell, .key, .tool, .board { touch-action: manipulation; }
     margin: auto 0 0;
     border-radius: 22px 22px 0 0;
     border-bottom: none;
-    max-height: 90svh;
+    max-height: calc(90 * var(--vh, 1vh));
     padding: 22px 16px calc(24px + env(safe-area-inset-bottom));
   }
   .sheet[open] { animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
@@ -702,17 +699,17 @@ button, .cell, .key, .tool, .board { touch-action: manipulation; }
     grid-template-columns: var(--board) minmax(220px, 320px);
     gap: 20px;
     max-width: none;
-    --board: calc(100svh - 112px);
+    --board: calc(calc(100 * var(--vh, 1vh)) - 112px);
   }
   .side { width: auto; }
-  .key { height: clamp(40px, 13svh, 56px); }
+  .key { height: clamp(40px, calc(13 * var(--vh, 1vh)), 56px); }
   .hint-line { display: none; }
 }
 
 /* start screen */
 .start { max-width: 420px; }
 .start-head { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 4px 0 16px; }
-.start-head .logo { font-size: 2.6rem; line-height: 1.7; }
+.start-head .logo { font-size: 3.4rem; }
 .start-head h2 { font-size: 1.4rem; }
 .start .list { margin-bottom: 16px; }
 .start .btn { min-height: 52px; font-size: 1rem; }

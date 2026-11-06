@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Musical Sudoku</title>
   <meta name="description" content="Sudoku with music symbols. Every symbol has a sound.">
   <meta name="theme-color" content="#f3f0e8" media="(prefers-color-scheme: light)">
@@ -17,8 +17,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Noto+Music&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=15">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -36,7 +36,7 @@
   <div class="app">
     <header class="top">
       <div class="brand">
-        <span class="logo" aria-hidden="true">&#x1D11E;</span>
+        <span class="glyph logo" style="--img:url(symbols/treble-clef.png)" aria-hidden="true"></span>
         <h1>Musical Sudoku</h1>
       </div>
       <div class="top-actions">
@@ -57,7 +57,7 @@
     <main class="game">
       <div class="board-wrap">
         <div id="board" class="board" role="grid" aria-label="Sudoku board"></div>
-        <div id="busy" class="busy" hidden><span class="logo" aria-hidden="true">&#x1D11E;</span>Writing a new puzzle…</div>
+        <div id="busy" class="busy" hidden><span class="glyph logo" style="--img:url(symbols/treble-clef.png)" aria-hidden="true"></span>Writing a new puzzle…</div>
       </div>
 
       <aside class="side">
@@ -93,7 +93,7 @@
 
   <dialog id="start" class="sheet start" aria-labelledby="startTitle">
     <div class="start-head">
-      <span class="logo" aria-hidden="true">&#x1D11E;</span>
+      <span class="glyph logo" style="--img:url(symbols/treble-clef.png)" aria-hidden="true"></span>
       <h2 id="startTitle">Musical Sudoku</h2>
     </div>
     <div class="list">
@@ -178,6 +178,6 @@
     <p class="credit">Sounds: FluidR3 GM soundfont (CC BY 3.0)</p>
   </dialog>
 
-  <script type="module" src="js/app.js?v=15"></script>
+  <script type="module" src="js/app.js?v=16"></script>
 </body>
 </html>

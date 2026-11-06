@@ -137,9 +137,9 @@ export class Audio {
   // browsers only let it make sound after a tap or key, which unlock() handles
   init() {
     if (!this.ctx) {
-      // tell the phone this sound should mix with other audio (a call, music) instead of
-      // being cut off by it. supported on iphones with ios 17+, ignored elsewhere
-      try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch { }
+      // treat the game like a music app so it plays even with the ringer switched off
+      // (iphones with ios 17+; older ones are handled by the silent track in unlock)
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { }
       const AC = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AC({ latencyHint: 'interactive' });
       // a call or another app can pause the sound. wake it up again as soon as we can
@@ -165,6 +165,29 @@ export class Audio {
   unlock() {
     this.init();
     this.wake();
+    this.keepPlaying();
+  }
+
+  // iphones mute web audio when the ringer is off unless a real media element is playing.
+  // a looping, silent track flips the page into "media" mode so the notes are heard anyway
+  keepPlaying() {
+    if (!this.silent) {
+      const rate = 8000, len = rate / 2; // half a second of silence, 8-bit mono wav
+      const buf = new ArrayBuffer(44 + len), v = new DataView(buf);
+      const str = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+      str(0, 'RIFF'); v.setUint32(4, 36 + len, true); str(8, 'WAVEfmt ');
+      v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+      str(36, 'data'); v.setUint32(40, len, true);
+      for (let i = 0; i < len; i++) v.setUint8(44 + i, 128);
+      this.silent = document.createElement('audio');
+      this.silent.src = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+      this.silent.loop = true;
+      this.silent.setAttribute('playsinline', '');
+      this.silent.setAttribute('x-webkit-airplay', 'deny');
+      document.addEventListener('visibilitychange', () => { if (document.hidden) this.silent.pause(); });
+    }
+    if (this.silent.paused && !document.hidden) this.silent.play().catch(() => {});
   }
 
   wake() {
