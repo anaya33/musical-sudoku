@@ -242,7 +242,7 @@ export class Audio {
       this.ctx.resume().then(() => { if (performance.now() - asked < 800) this.play(symbol, opts); }).catch(() => {});
       return;
     }
-    const { when = 0, beat = 0.34, gain = 0.6, sour = false, plain = false } = opts;
+    const { when = 0, beat = 0.45, gain = 0.6, sour = false, plain = false } = opts;
     const m = this.midi(symbol);
     const inst = INSTRUMENTS[this.instrument];
     const pick = this.sampleFor(m);
@@ -306,7 +306,7 @@ export class Audio {
     const want = this.instrument + this.key;
     this.loading.then(() => {
       if (want !== this.instrument + this.key) return;
-      [5, 1, 3, 4, 6].forEach((s, k) => this.play(s, { plain: true, when: k * 0.26, beat: k === 4 ? 0.9 : 0.3, gain: 0.5 }));
+      [5, 1, 3, 4, 6].forEach((s, k) => this.play(s, { plain: true, when: k * 0.42, beat: k === 4 ? 1.2 : 0.45, gain: 0.5 }));
     });
   }
 

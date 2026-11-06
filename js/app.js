@@ -1,6 +1,6 @@
-import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=17';
-import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=17';
-import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=17';
+import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=18';
+import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=18';
+import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=18';
 
 const SAVE_KEY = 'musical-sudoku-v3';
 const $ = (id) => document.getElementById(id);
@@ -47,7 +47,7 @@ const settings = {
 };
 const MATCHING = true; // highlight every copy of the selected symbol
 const CELEBRATE = true; // play finished rows, columns and boxes
-const TEMPO = 80; // slow enough to hear each note in the melody
+const TEMPO = 64; // slow enough to hear each note in the melody
 
 let game = null; // { n, difficulty, puzzle, solution, grid, marks, mistakes, hints, elapsed, won, techniques }
 let geo = null;
@@ -155,7 +155,7 @@ const jobs = new Map();
 function makePuzzle(n, difficulty) {
   if (!worker && typeof Worker !== 'undefined') {
     try {
-      worker = new Worker(new URL('./worker.js?v=17', import.meta.url), { type: 'module' });
+      worker = new Worker(new URL('./worker.js?v=18', import.meta.url), { type: 'module' });
       worker.onmessage = (e) => { jobs.get(e.data.id)?.(e.data.result); jobs.delete(e.data.id); };
       worker.onerror = () => { worker = false; };
     } catch { worker = false; }
@@ -164,7 +164,7 @@ function makePuzzle(n, difficulty) {
     const id = ++jobId;
     return new Promise((res) => { jobs.set(id, res); worker.postMessage({ id, n, difficulty }); });
   }
-  return import('./generator.js?v=17').then((m) => m.generate(n, difficulty));
+  return import('./generator.js?v=18').then((m) => m.generate(n, difficulty));
 }
 
 async function newGame() {
@@ -418,7 +418,7 @@ function celebrateGroups(i) {
   if (!groups.length || solved()) return;
   stopPlayback();
   let start = 500;
-  for (const g of groups) start = perform(g, { step: 300, start }) + 400;
+  for (const g of groups) start = perform(g, { step: 420, start }) + 500;
 }
 
 function checkWin() {
