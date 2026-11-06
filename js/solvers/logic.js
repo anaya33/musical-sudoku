@@ -7,7 +7,7 @@
 // tier 2: naked pair, pointing pair, box/line reduction
 // tier 3: hidden pair, naked triple, hidden triple, x-wing
 
-import { popcount, lowBit, bitsToValues, candidateMask } from '../sudoku.js?v=20';
+import { popcount, lowBit, bitsToValues, candidateMask } from '../sudoku.js?v=21';
 
 export const TECHNIQUES = {
   nakedSingle: { tier: 1, label: 'Last option' },

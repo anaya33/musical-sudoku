@@ -18,7 +18,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&text=%F0%9F%A5%B3%F0%9F%8E%89%F0%9F%8E%8A&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -72,12 +73,14 @@
         </div>
 
         <div id="win" class="win" hidden>
-          <p class="win-title">Solved</p>
+          <div class="win-emoji" aria-hidden="true"><span>🥳</span><span>🎉</span></div>
+          <div class="confetti" id="confetti" aria-hidden="true"></div>
+          <p class="win-title" id="winTitle">You did it!</p>
           <p id="winTime" class="win-time"></p>
           <p id="winBest" class="win-best"></p>
           <p id="winStats" class="win-stats"></p>
-          <button class="btn" id="winPlay">Hear it again</button>
-          <button class="btn primary" id="winNew">New puzzle</button>
+          <button class="btn primary" id="winPlay">▶ Play my board</button>
+          <button class="btn" id="winNew">New puzzle</button>
         </div>
       </aside>
     </main>
@@ -178,6 +181,6 @@
     <p class="credit">Sounds: Versilian Studios VSCO 2 and FluidR3 GM (CC BY 3.0)</p>
   </dialog>
 
-  <script type="module" src="js/app.js?v=20"></script>
+  <script type="module" src="js/app.js?v=21"></script>
 </body>
 </html>

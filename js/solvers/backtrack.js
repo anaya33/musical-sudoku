@@ -5,7 +5,7 @@
 // independent from dancing links, so the two can check each other.
 // with a random generator it also builds the full random grids puzzles are cut from.
 
-import { popcount, lowBit } from '../sudoku.js?v=20';
+import { popcount, lowBit } from '../sudoku.js?v=21';
 
 export function btSolve(geo, grid, { limit = 2, rng = null } = {}) {
   const { n, total, all } = geo;

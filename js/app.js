@@ -1,6 +1,6 @@
-import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=20';
-import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=20';
-import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=20';
+import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=21';
+import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=21';
+import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=21';
 
 const SAVE_KEY = 'musical-sudoku-v3';
 const $ = (id) => document.getElementById(id);
@@ -155,7 +155,7 @@ const jobs = new Map();
 function makePuzzle(n, difficulty) {
   if (!worker && typeof Worker !== 'undefined') {
     try {
-      worker = new Worker(new URL('./worker.js?v=20', import.meta.url), { type: 'module' });
+      worker = new Worker(new URL('./worker.js?v=21', import.meta.url), { type: 'module' });
       worker.onmessage = (e) => { jobs.get(e.data.id)?.(e.data.result); jobs.delete(e.data.id); };
       worker.onerror = () => { worker = false; };
     } catch { worker = false; }
@@ -164,7 +164,7 @@ function makePuzzle(n, difficulty) {
     const id = ++jobId;
     return new Promise((res) => { jobs.set(id, res); worker.postMessage({ id, n, difficulty }); });
   }
-  return import('./generator.js?v=20').then((m) => m.generate(n, difficulty));
+  return import('./generator.js?v=21').then((m) => m.generate(n, difficulty));
 }
 
 async function newGame() {
@@ -433,11 +433,34 @@ function checkWin() {
     game.result = { best: Math.min(prev ?? Infinity, game.elapsed), isNew: prev === undefined || game.elapsed < prev, first: prev === undefined };
     settings.best[key] = game.result.best;
   }
+  game.cheer = CHEERS[Math.floor(Math.random() * CHEERS.length)];
   save();
   render();
   wave();
+  if (game.difficulty !== 'tutorial') confetti();
   buzz([20, 40, 20, 40, 80]);
   if (game.difficulty !== 'tutorial') setTimeout(playBoard, 300 + game.n * 2 * 40);
+}
+
+const CHEERS = ['You did it!', 'Congrats!', 'Nailed it!', 'Bravo!', 'Encore!', 'Perfect pitch!', 'What a performance!', 'Standing ovation!'];
+
+// a little burst of confetti from the emoji, kept inside the win card
+function confetti() {
+  const box = $('confetti');
+  box.innerHTML = '';
+  const colors = ['#ffcc4d', '#f4900c', '#ea596e', '#5dadec', '#77b255', '#aa8ed6'];
+  for (let k = 0; k < 28; k++) {
+    const p = document.createElement('i');
+    const angle = (Math.random() * 300 - 150) * Math.PI / 180;
+    const dist = 70 + Math.random() * 110;
+    p.style.setProperty('--x', `${Math.sin(angle) * dist}px`);
+    p.style.setProperty('--y', `${-Math.cos(angle) * dist * 0.8 + 40}px`);
+    p.style.setProperty('--r', `${Math.random() * 720 - 360}deg`);
+    p.style.background = colors[k % colors.length];
+    p.style.animationDelay = `${Math.random() * 120}ms`;
+    box.appendChild(p);
+  }
+  setTimeout(() => { box.innerHTML = ''; }, 1800);
 }
 
 // a ripple across the board from the top left corner
@@ -471,14 +494,24 @@ function perform(list, { step = beatMs(), start = 0, rowGap = 0 } = {}) {
   return t;
 }
 
+let boardPlaying = false;
+
 function stopPlayback() {
   playTimers.forEach(clearTimeout);
   playTimers = [];
   cells.forEach((el) => el.classList.remove('playing'));
+  boardPlaying = false;
+  $('winPlay').textContent = '▶ Play my board';
+  if (game?.won && !sayTimer) $('hintLine').textContent = defaultLine();
 }
 
+// plays the whole board row by row. pressing again while it plays stops it
 function playBoard() {
-  if (playTimers.length) { stopPlayback(); return; }
+  if (boardPlaying) { stopPlayback(); return; }
+  stopPlayback();
+  boardPlaying = true;
+  $('winPlay').textContent = '■ Stop';
+  if (game.won && !sayTimer) $('hintLine').textContent = defaultLine();
   const end = perform([...Array(geo.total).keys()], { rowGap: 1 });
   playTimers.push(setTimeout(stopPlayback, end + 200));
 }
@@ -627,7 +660,7 @@ function clearSay() {
   $('hintLine').classList.remove('bad');
 }
 function defaultLine() {
-  if (game?.won) return 'Nice work. Press play to hear your board.';
+  if (game?.won) return boardPlaying ? 'Listen: your board is playing.' : 'Tap “Play my board” to hear it again.';
   if (busy) return '';
   return pencil ? 'Notes are on: symbols go in small.' : 'Tap a square, then tap a symbol.';
 }
@@ -711,6 +744,7 @@ function render() {
   $('win').hidden = !game.won || game.difficulty === 'tutorial';
   if (game.won) {
     const r = game.result;
+    $('winTitle').textContent = game.cheer ?? 'You did it!';
     $('winTime').textContent = fmt(game.elapsed);
     $('winBest').textContent = !r ? '' : r.first ? 'First win at this level' : r.isNew ? 'New best time!' : `Best ${fmt(r.best)}`;
     $('winBest').classList.toggle('new', !!r?.isNew && !r.first);
@@ -791,7 +825,7 @@ $('volume').addEventListener('change', () => audio.play(4));
 // replay opens the size and level picker, which also offers to keep going
 $('replayBtn').addEventListener('click', () => { hideCoach(); showStart(); });
 $('winNew').addEventListener('click', newGame);
-$('winPlay').addEventListener('click', () => { stopPlayback(); playBoard(); });
+$('winPlay').addEventListener('click', playBoard);
 $('pencilBtn').addEventListener('click', () => { pencil = !pencil; render(); });
 $('eraseBtn').addEventListener('click', erase);
 $('fillNotesBtn').addEventListener('click', fillNotes);

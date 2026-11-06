@@ -606,7 +606,8 @@ label.row { cursor: pointer; }
 .win-best { margin: 0; font-size: 0.9rem; font-weight: 500; color: var(--ink-soft); }
 .win-best:empty { display: none; }
 .win-best.new { color: var(--ink); font-weight: 700; }
-.win .win-title { font-size: 1rem; font-weight: 500; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; }
+.win { position: relative; overflow: visible; }
+.win .win-title { font-size: 1.5rem; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; }
 .win .win-stats { font-size: 0.82rem; }
 
 /* the ripple when a board is solved */
@@ -715,3 +716,31 @@ button, .cell, .key, .tool, .board { touch-action: manipulation; }
 .start .btn { min-height: 52px; font-size: 1rem; }
 .start .btn + .btn { margin-top: 8px; }
 .start .link-btn { margin-top: 12px; min-height: 44px; }
+
+/* celebration: google's flat emoji and a confetti pop */
+.win-emoji {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  font-size: 3rem;
+  line-height: 1;
+}
+.win-emoji span { display: inline-block; animation: hop 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+.win-emoji span + span { animation-delay: 0.12s; }
+@keyframes hop { 0% { transform: scale(0.2) rotate(-20deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.confetti { position: absolute; left: 50%; top: 46px; width: 0; height: 0; pointer-events: none; }
+.confetti i {
+  position: absolute;
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  animation: pop 1.4s cubic-bezier(0.15, 0.7, 0.4, 1) both;
+}
+.confetti i:nth-child(3n) { width: 10px; height: 10px; border-radius: 50%; }
+@keyframes pop {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translate(var(--x), var(--y)) rotate(var(--r)); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } .win-emoji span { animation: none; } }
