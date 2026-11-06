@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Noto+Music&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -83,6 +83,14 @@
     <section class="group">
       <h3>Game</h3>
       <div class="field">
+        <span class="field-label">Grid size</span>
+        <div class="seg" data-setting="grid">
+          <button data-value="4">4 × 4</button>
+          <button data-value="6">6 × 6</button>
+          <button data-value="9">9 × 9</button>
+        </div>
+      </div>
+      <div class="field">
         <span class="field-label">Level</span>
         <div class="seg" data-setting="difficulty">
           <button data-value="easy">Easy</button>
@@ -90,6 +98,7 @@
           <button data-value="hard">Hard</button>
         </div>
       </div>
+      <p class="note" id="gameNote" hidden>This starts when you begin a new game.</p>
       <button class="btn primary wide" id="newBtn">Start a new game</button>
     </section>
 
@@ -98,6 +107,11 @@
       <div class="field">
         <span class="field-label">Instrument</span>
         <div class="seg wrap" data-setting="instrument"></div>
+      </div>
+      <p class="note" id="soundStatus" aria-live="polite"></p>
+      <div class="field">
+        <span class="field-label">Try them</span>
+        <div class="try" id="tryPad"></div>
       </div>
       <div class="field">
         <span class="field-label">Key</span>
@@ -136,6 +150,7 @@
     <section class="group">
       <h3>Help while playing</h3>
       <label class="switch"><span>Mark mistakes right away</span><input type="checkbox" data-toggle="autocheck"></label>
+      <label class="switch"><span>Grey out symbols that can't go in a square</span><input type="checkbox" data-toggle="dim"></label>
       <label class="switch"><span>Highlight matching symbols</span><input type="checkbox" data-toggle="matching"></label>
       <label class="switch"><span>Play finished rows, columns and boxes</span><input type="checkbox" data-toggle="celebrate"></label>
       <label class="switch"><span>Show timer</span><input type="checkbox" data-toggle="timer"></label>
@@ -149,17 +164,19 @@
       <button class="icon-btn" data-close aria-label="Close"><svg><use href="#i-close"/></svg></button>
     </div>
     <p>It's sudoku with nine music symbols instead of numbers. Each row, column and 3×3 box needs every symbol once.</p>
-    <p>Every symbol has its own sound. Tap one to hear it:</p>
+    <p>Each symbol is a real note on the treble staff. The lines are E G B D F ("every good boy does fine") and the spaces are F A C E. Tap one to hear it:</p>
     <div id="legend" class="legend"></div>
     <ul class="tips">
       <li><b>Play</b> (top right) plays the whole board, row by row. Empty squares are silent.</li>
       <li><b>Listen</b> plays the right symbol for the selected square without showing it.</li>
       <li><b>Notes</b> lets you pencil in small options.</li>
     </ul>
+    <p class="keys">Change the instrument, key and grid size in Settings (the gear).</p>
     <p class="keys">Keyboard: 1–9 place · arrows move · Backspace erase · N notes · L listen · Space play · Ctrl+Z undo</p>
     <button class="btn primary wide" data-close>Let's play</button>
+    <p class="credit">Instrument sounds: FluidR3 GM soundfont, via gleitz/midi-js-soundfonts.</p>
   </dialog>
 
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=6"></script>
 </body>
 </html>

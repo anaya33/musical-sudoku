@@ -1,36 +1,38 @@
 # Musical Sudoku
 
-Sudoku with nine music symbols instead of numbers: treble clef, bass clef, half, quarter, eighth and sixteenth notes, sharp, flat and fermata. Every row, column and box needs each symbol once.
+Sudoku with music symbols instead of numbers. Every row, column and box needs each symbol once. Play on a 4×4, 6×6 or 9×9 grid.
 
-Every symbol has its own sound, and it plays the moment you place it:
+Each symbol is a real note on the treble staff (lines E G B D F, spaces F A C E), played with real instrument recordings:
 
-| symbol | sound |
-| --- | --- |
-| treble clef | a bright high G |
-| bass clef | a deep low F |
-| half note | a long C, two beats |
-| quarter note | one E, one beat |
-| eighth note | two quick Gs |
-| sixteenth note | four fast As |
-| sharp | a D that slides up |
-| flat | a B that slides down |
-| fermata | a high C that holds and swells |
+| symbol | note | how it plays |
+| --- | --- | --- |
+| treble clef | G, 2nd line | one beat |
+| bass clef | F, 1st space | one beat |
+| half note | B, middle line | two beats |
+| quarter note | D, 4th line | one beat |
+| eighth note | E, bottom line | two quick notes |
+| sixteenth note | F, top line | four fast notes |
+| sharp | A, 2nd space | slides up |
+| flat | C, 3rd space | slides down |
+| fermata | E, top space | holds |
 
-- the play button plays the whole board row by row (empty squares are silent)
-- finished rows, columns and boxes play back
-- Listen plays the right symbol for a square without showing it
-- notes, undo, erase, reveal, progress saved in the browser
-- settings: level, instrument (piano, music box, marimba, soft synth), key, volume, tempo, paper or ink theme, symbol size, and help toggles
+- tap any square to hear it; a wrong symbol turns red, shakes and plays out of tune
+- symbols that can't go in the selected square are greyed out
+- the play button plays the whole board; finished rows, columns and boxes play back
+- Listen plays the right note for a square without showing it
+- settings: grid size, level, instrument (piano, guitar, strings, violin, harp, flute, music box, marimba, synth), a row to try every note, key, volume, tempo, paper or ink theme, symbol size, help toggles
 
-Black and white, flat paper tiles. All sound is made live with the Web Audio API, so there are no audio files and no build step.
+Black and white, flat paper look. No build step.
+
+Instrument sounds are the FluidR3 GM soundfont, loaded from [gleitz/midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts). If they can't load, a built-in synth plays instead.
 
 ## Run it locally
 
 ```
-python3 -m http.server 8000
+python3 -m http.server 8777
 ```
 
-then open http://localhost:8000 (opening index.html directly won't work because it uses JS modules).
+or any static server, then open http://localhost:8777 (opening index.html directly won't work because it uses JS modules).
 
 ## Put it on GitHub Pages
 

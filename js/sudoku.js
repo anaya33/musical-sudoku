@@ -1,25 +1,30 @@
-// puzzle generation + solving. a grid is a flat array of 81 numbers, 0 = empty, 1-9 = note index + 1
+// puzzle generation + solving for 4x4, 6x6 and 9x9 grids.
+// a grid is a flat array of n*n numbers, 0 = empty, 1..n = a symbol
 
-export const rowOf = (i) => Math.floor(i / 9);
-export const colOf = (i) => i % 9;
-export const boxOf = (i) => Math.floor(rowOf(i) / 3) * 3 + Math.floor(colOf(i) / 3);
+// box shape (rows x cols) for each grid size
+const BOX = { 4: [2, 2], 6: [2, 3], 9: [3, 3] };
 
-export const rowCells = (r) => Array.from({ length: 9 }, (_, c) => r * 9 + c);
-export const colCells = (c) => Array.from({ length: 9 }, (_, r) => r * 9 + c);
-export const boxCells = (b) => {
-  const r0 = Math.floor(b / 3) * 3, c0 = (b % 3) * 3;
-  const out = [];
-  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) out.push((r0 + r) * 9 + c0 + c);
-  return out;
-};
+const geoCache = {};
 
-// every cell that shares a row, column or box with i
-const PEERS = Array.from({ length: 81 }, (_, i) => {
-  const s = new Set([...rowCells(rowOf(i)), ...colCells(colOf(i)), ...boxCells(boxOf(i))]);
-  s.delete(i);
-  return [...s];
-});
-export const peers = (i) => PEERS[i];
+// everything about the shape of an n x n grid: which cells share a row, column or box
+export function geometry(n) {
+  if (geoCache[n]) return geoCache[n];
+  const [br, bc] = BOX[n];
+  const total = n * n;
+  const rowOf = (i) => Math.floor(i / n);
+  const colOf = (i) => i % n;
+  const boxOf = (i) => Math.floor(rowOf(i) / br) * (n / bc) + Math.floor(colOf(i) / bc);
+  const rows = Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, c) => r * n + c));
+  const cols = Array.from({ length: n }, (_, c) => Array.from({ length: n }, (_, r) => r * n + c));
+  const boxes = Array.from({ length: n }, () => []);
+  for (let i = 0; i < total; i++) boxes[boxOf(i)].push(i);
+  const peers = Array.from({ length: total }, (_, i) => {
+    const s = new Set([...rows[rowOf(i)], ...cols[colOf(i)], ...boxes[boxOf(i)]]);
+    s.delete(i);
+    return [...s];
+  });
+  return (geoCache[n] = { n, br, bc, total, rowOf, colOf, boxOf, rows, cols, boxes, peers });
+}
 
 function shuffle(a) {
   for (let i = a.length - 1; i > 0; i--) {
@@ -29,20 +34,20 @@ function shuffle(a) {
   return a;
 }
 
-export function candidates(grid, i) {
+export function candidates(geo, grid, i) {
   if (grid[i]) return [];
-  const used = new Set(PEERS[i].map((p) => grid[p]));
+  const used = new Set(geo.peers[i].map((p) => grid[p]));
   const out = [];
-  for (let v = 1; v <= 9; v++) if (!used.has(v)) out.push(v);
+  for (let v = 1; v <= geo.n; v++) if (!used.has(v)) out.push(v);
   return out;
 }
 
 // backtracking with fewest-candidates heuristic. returns number of solutions found (stops at limit)
-function search(grid, limit, randomize, onSolution) {
+function search(geo, grid, limit, randomize, onSolution) {
   let best = -1, bestCands = null;
-  for (let i = 0; i < 81; i++) {
+  for (let i = 0; i < geo.total; i++) {
     if (grid[i]) continue;
-    const c = candidates(grid, i);
+    const c = candidates(geo, grid, i);
     if (c.length === 0) return 0;
     if (!bestCands || c.length < bestCands.length) {
       best = i; bestCands = c;
@@ -54,43 +59,37 @@ function search(grid, limit, randomize, onSolution) {
   let count = 0;
   for (const v of bestCands) {
     grid[best] = v;
-    count += search(grid, limit - count, randomize, onSolution);
+    count += search(geo, grid, limit - count, randomize, onSolution);
     if (count >= limit) break;
   }
   grid[best] = 0;
   return count;
 }
 
-export function solve(grid) {
-  const g = grid.slice();
-  let sol = null;
-  search(g, 1, false, (s) => { sol = s.slice(); });
-  return sol;
-}
+export const countSolutions = (geo, grid, limit = 2) => search(geo, grid.slice(), limit, false);
 
-export const countSolutions = (grid, limit = 2) => search(grid.slice(), limit, false);
+// how many symbols are given at the start
+const CLUES = {
+  4: { easy: 8, medium: 6, hard: 5 },
+  6: { easy: 20, medium: 16, hard: 13 },
+  9: { easy: 40, medium: 32, hard: 26 },
+};
 
-function fullGrid() {
-  const g = new Array(81).fill(0);
-  let sol = null;
-  search(g, 1, true, (s) => { sol = s.slice(); });
-  return sol;
-}
-
-const CLUES = { easy: 40, medium: 32, hard: 26 };
-
-export function generate(difficulty = 'easy') {
-  const solution = fullGrid();
+export function generate(n = 9, difficulty = 'easy') {
+  const geo = geometry(n);
+  let solution = null;
+  search(geo, new Array(geo.total).fill(0), 1, true, (s) => { solution = s.slice(); });
   const puzzle = solution.slice();
-  const target = CLUES[difficulty] ?? 36;
-  let filled = 81;
+  const target = CLUES[n][difficulty] ?? CLUES[n].easy;
+  let filled = geo.total;
   // remove symmetric pairs while the solution stays unique
-  for (const i of shuffle([...Array(41).keys()])) {
+  const half = Math.ceil(geo.total / 2);
+  for (const i of shuffle([...Array(half).keys()])) {
     if (filled <= target) break;
-    const j = 80 - i;
+    const j = geo.total - 1 - i;
     const a = puzzle[i], b = puzzle[j];
     puzzle[i] = 0; puzzle[j] = 0;
-    if (countSolutions(puzzle) !== 1) { puzzle[i] = a; puzzle[j] = b; continue; }
+    if (countSolutions(geo, puzzle) !== 1) { puzzle[i] = a; puzzle[j] = b; continue; }
     filled -= i === j ? 1 : 2;
   }
   return { puzzle, solution };

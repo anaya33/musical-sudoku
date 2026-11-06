@@ -5,6 +5,8 @@
   --tile-edge: #dfdbd0;
   --tile-sink: #d6d1c4;
   --peer: #ebe7dd;
+  --wrong: #c8372d;
+  --wrong-bg: #f8e1dc;
   --grid-line: #bdb8ab;
   --match: #dcd7ca;
   --ink: #1c1b19;
@@ -23,6 +25,8 @@
   --tile-edge: #33312c;
   --tile-sink: #0e0e0c;
   --peer: #2c2b27;
+  --wrong: #ff7b6e;
+  --wrong-bg: #3d2420;
   --grid-line: #4a4740;
   --match: #3b3934;
   --ink: #f1eee6;
@@ -41,6 +45,8 @@
     --tile-edge: #33312c;
     --tile-sink: #0e0e0c;
     --peer: #2c2b27;
+  --wrong: #ff7b6e;
+  --wrong-bg: #3d2420;
   --grid-line: #4a4740;
     --match: #3b3934;
     --ink: #f1eee6;
@@ -141,7 +147,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   gap: 32px;
   align-items: start;
   justify-content: center;
-  --board: min(600px, calc(100svh - 150px), calc(100vw - 380px));
+  --board: min(520px, calc(100svh - 170px), calc(100vw - 380px));
 }
 .board { width: var(--board); }
 
@@ -150,7 +156,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .board {
   container-type: inline-size;
   display: grid;
-  grid-template: repeat(3, minmax(0, 1fr)) / repeat(3, minmax(0, 1fr));
+  grid-template: repeat(var(--box-rows, 3), minmax(0, 1fr)) / repeat(var(--box-cols, 3), minmax(0, 1fr));
   gap: 3px;
   aspect-ratio: 1;
   padding: 0;
@@ -164,7 +170,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 }
 .box {
   display: grid;
-  grid-template: repeat(3, minmax(0, 1fr)) / repeat(3, minmax(0, 1fr));
+  grid-template: repeat(var(--br, 3), minmax(0, 1fr)) / repeat(var(--bc, 3), minmax(0, 1fr));
   gap: 1px;
   min-height: 0;
   background: var(--grid-line);
@@ -181,18 +187,14 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   overflow: hidden;
   min-height: 0;
 }
-.cell .glyph { font-size: calc(8cqw * var(--sym)); }
+.cell .glyph { font-size: calc(72cqw / var(--n, 9) * var(--sym)); }
 .cell.given { color: var(--ink); }
 .cell.user { color: var(--ink-soft); }
 .cell.peer { background: var(--peer); }
 .cell.match { background: var(--match); }
 .cell.selected { background: var(--ink); color: var(--on-ink); }
-.cell.wrong {
-  background-image: repeating-linear-gradient(-45deg, transparent 0 5px, var(--tile-edge) 5px 6px);
-  outline: 2px dashed var(--ink);
-  outline-offset: -4px;
-}
-.cell.wrong.selected { background-image: none; outline-color: var(--on-ink); }
+.cell.wrong { color: var(--wrong); background: var(--wrong-bg); }
+.cell.wrong.selected { background: var(--wrong); color: var(--on-ink); }
 .cell.shake .glyph { animation: shake 0.3s; }
 .cell.pop .glyph { animation: pop 0.28s ease-out; }
 .cell.playing { background: var(--ink); color: var(--on-ink); }
@@ -211,10 +213,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   position: absolute;
   inset: 3px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
+  grid-template-columns: repeat(var(--bc, 3), 1fr);
+  grid-template-rows: repeat(var(--br, 3), 1fr);
   place-items: center;
-  font-size: calc(2.7cqw * var(--sym));
+  font-size: calc(24cqw / var(--n, 9) * var(--sym));
   color: var(--ink-soft);
 }
 
@@ -249,6 +251,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 }
 .key:active, .key.down { transform: translateY(3px); box-shadow: 0 0 0 var(--tile-edge); background: var(--ink); color: var(--on-ink); }
 .key.done { opacity: 0.3; }
+.key.blocked { opacity: 0.28; box-shadow: none; transform: translateY(2px); }
+.pad[data-n="4"] { grid-template-columns: repeat(2, 1fr); }
 .pencil-on .key { border-style: dashed; }
 
 .tools {
@@ -273,6 +277,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .tool svg { width: 24px; height: 24px; }
 .tool:hover { background: var(--peer); }
 .tool[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+
+.hint-line.bad { color: var(--wrong); }
+#mistakes.flash { animation: flash 0.9s; }
+@keyframes flash { 0%, 60% { color: var(--wrong); font-weight: 700; } }
 
 .hint-line {
   text-align: center;
@@ -339,7 +347,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   background: var(--peer);
   border-radius: 12px;
 }
-.seg.wrap { flex-wrap: wrap; }
+.seg.wrap { display: grid; grid-template-columns: repeat(3, 1fr); }
 .seg button {
   flex: 1;
   padding: 8px 6px;
@@ -416,16 +424,21 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   .game {
     grid-template-columns: var(--board);
     gap: 16px;
-    --board: max(260px, min(100%, 540px, calc(100svh - 390px)));
+    --board: max(260px, min(100%, 480px, calc(100svh - 390px)));
   }
   .side { width: var(--board); }
   .pad { gap: 8px; }
   .key { aspect-ratio: auto; height: clamp(44px, 7svh, 60px); border-radius: 12px; box-shadow: 0 2px 0 var(--tile-edge); }
   .key .glyph { font-size: calc(min(9cqw, 5.2svh) * var(--sym)); }
   .key .left { top: 4px; right: 7px; font-size: 0.62rem; }
+  .pad[data-n="4"] { grid-template-columns: repeat(4, 1fr); }
   .tools { margin-top: 8px; gap: 4px; }
   .tool { padding: 6px 0 5px; }
-  .hint-line { margin-top: 10px; }
+  .hint-line.bad { color: var(--wrong); }
+#mistakes.flash { animation: flash 0.9s; }
+@keyframes flash { 0%, 60% { color: var(--wrong); font-weight: 700; } }
+
+.hint-line { margin-top: 10px; }
   .status { padding-bottom: 10px; }
   .top { padding-top: 12px; }
 }
@@ -437,3 +450,29 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   .icon-btn { width: 38px; height: 38px; border-radius: 11px; }
   .icon-btn svg { width: 20px; height: 20px; }
 }
+
+.note { margin: 0; font-size: 0.82rem; color: var(--ink-soft); }
+.note:empty { display: none; }
+.credit { margin: 12px 0 0; font-size: 0.7rem; color: var(--ink-faint); text-align: center; }
+
+/* tap-to-hear row in settings */
+.try {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 4px;
+}
+.try button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0 4px;
+  background: var(--tile);
+  border: 1px solid var(--tile-edge);
+  border-radius: 9px;
+  box-shadow: 0 2px 0 var(--tile-edge);
+}
+.try .glyph { font-size: 1.5rem; }
+.try small { font-size: 0.62rem; color: var(--ink-soft); }
+.try button:active { background: var(--ink); color: var(--on-ink); transform: translateY(2px); box-shadow: none; }
+.try button:active small { color: var(--on-ink); }
