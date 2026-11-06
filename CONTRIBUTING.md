@@ -1,13 +1,20 @@
-<div align="center">
+# Contributing
 
-| [🏠 Home](../README.md) | [📖 How to play](how-to-play.md) | **🧠 Algorithms** | [💻 Run it](run-it.md) |
-| :---: | :---: | :---: | :---: |
+## Run it
 
-</div>
+```bash
+python3 -m http.server 8000
+```
 
-# Algorithms
+Open `localhost:8000`. Run the tests (Node 18+) with:
 
-Three solvers that check each other.
+```bash
+npm test
+```
+
+## Algorithms
+
+Three solvers that check each other, in [`js/solvers/`](js/solvers/).
 
 | | Algorithm | Job |
 | :---: | --- | --- |
@@ -15,14 +22,12 @@ Three solvers that check each other.
 | 2 | **Bitmask backtracking** | Builds random full grids and double-checks #1 |
 | 3 | **Logic solver** | Solves like a person, grades difficulty, powers hints |
 
-## How a puzzle is made
+### How a puzzle is made
 
 1. Build a random full grid (#2)
 2. Remove symbols in mirror-image pairs
 3. Keep a removal only if #1 still finds one answer and #3 can still solve it without guessing
 4. Grade it by the hardest technique #3 needed
-
-## Techniques the logic solver knows
 
 | Level | Techniques |
 | --- | --- |
@@ -30,4 +35,12 @@ Three solvers that check each other.
 | Medium | Naked pair, pointing pair, box/line reduction |
 | Hard | Hidden pair, naked triple, hidden triple, X-wing |
 
-Code lives in [`js/solvers/`](../js/solvers/).
+## Making a change
+
+1. Fork the repo and make a branch
+2. Keep it simple and run `npm test`
+3. Open a pull request saying what changed
+
+## Credits
+
+Sounds: FluidR3 GM soundfont via [gleitz/midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts) (CC BY 3.0). See [`samples/CREDITS.md`](samples/CREDITS.md).
