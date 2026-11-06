@@ -48,4 +48,4 @@ Three solvers that check each other, in [`js/solvers/`](js/solvers/).
 
 ## Credits
 
-Sounds: FluidR3 GM soundfont via [gleitz/midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts) (CC BY 3.0). See [`samples/CREDITS.md`](samples/CREDITS.md).
+Sounds: Versilian Studios VSCO 2 Community Edition via [nbrosowsky/tonejs-instruments](https://github.com/nbrosowsky/tonejs-instruments), and the FluidR3 GM soundfont via [gleitz/midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts). Both CC BY 3.0. See [`samples/CREDITS.md`](samples/CREDITS.md).

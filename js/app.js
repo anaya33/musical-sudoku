@@ -1,6 +1,6 @@
-import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=16';
-import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=16';
-import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=16';
+import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=17';
+import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=17';
+import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=17';
 
 const SAVE_KEY = 'musical-sudoku-v3';
 const $ = (id) => document.getElementById(id);
@@ -155,7 +155,7 @@ const jobs = new Map();
 function makePuzzle(n, difficulty) {
   if (!worker && typeof Worker !== 'undefined') {
     try {
-      worker = new Worker(new URL('./worker.js?v=16', import.meta.url), { type: 'module' });
+      worker = new Worker(new URL('./worker.js?v=17', import.meta.url), { type: 'module' });
       worker.onmessage = (e) => { jobs.get(e.data.id)?.(e.data.result); jobs.delete(e.data.id); };
       worker.onerror = () => { worker = false; };
     } catch { worker = false; }
@@ -164,7 +164,7 @@ function makePuzzle(n, difficulty) {
     const id = ++jobId;
     return new Promise((res) => { jobs.set(id, res); worker.postMessage({ id, n, difficulty }); });
   }
-  return import('./generator.js?v=16').then((m) => m.generate(n, difficulty));
+  return import('./generator.js?v=17').then((m) => m.generate(n, difficulty));
 }
 
 async function newGame() {

@@ -1,16 +1,16 @@
 // keeps the game playable offline once it has been opened.
 // files with ?v= in their name never change, so they come straight from the cache.
 // the page itself always tries the network first so updates show up.
-const V = '16';
+const V = '17';
 const CACHE = `musical-sudoku-${V}`;
-const NOTES = ['E4', 'F4', 'Gb4', 'G4', 'Ab4', 'A4', 'Bb4', 'B4', 'C5', 'Db5', 'D5', 'Eb5', 'E5', 'F5', 'Gb5', 'G5', 'Ab5', 'A5', 'Bb5', 'B5', 'C6', 'Db6', 'D6'];
+const NOTES = ['E4', 'F4', 'Fs4', 'G4', 'Gs4', 'A4', 'As4', 'B4', 'C5', 'Cs5', 'D5', 'Ds5', 'E5', 'F5', 'Fs5', 'G5', 'Gs5', 'A5', 'As5', 'B5', 'C6', 'Cs6', 'D6'];
 const CORE = [
   './', 'index.html', 'manifest.webmanifest', 'icons/favicon-32.png', 'icons/favicon-64.png', 'icons/icon-192.png',
   `style.css?v=${V}`, `js/app.js?v=${V}`, `js/audio.js?v=${V}`, `js/sudoku.js?v=${V}`,
   `js/generator.js?v=${V}`, `js/worker.js?v=${V}`,
   `js/solvers/dlx.js?v=${V}`, `js/solvers/backtrack.js?v=${V}`, `js/solvers/logic.js?v=${V}`,
   ...['treble-clef', 'bass-clef', 'half-note', 'quarter-note', 'eighth-note', 'sixteenth-note', 'sharp', 'flat', 'fermata'].map((f) => `symbols/${f}.png`),
-  ...NOTES.map((n) => `samples/acoustic_grand_piano/${n}.mp3`),
+  ...NOTES.map((n) => `samples/vsco/piano/${n}.mp3`),
 ];
 
 self.addEventListener('install', (e) => {

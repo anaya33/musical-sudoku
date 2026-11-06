@@ -1,4 +1,4 @@
-// real instrument samples (one recording per note) with a built-in synth as a fallback.
+// real instrument recordings, one file per note, played through the web audio api.
 // the nine symbols are the nine notes of the treble staff:
 // lines E G B D F ("every good boy does fine"), spaces F A C E
 
@@ -29,28 +29,36 @@ const PATTERNS = [
 
 export const KEYS = { C: 0, D: 2, Eb: 3, F: 5, G: 7, A: 9 };
 
-// sampled instruments use General MIDI names from the FluidR3 soundfont.
-// sustain = the instrument can hold a note (strings, flute), otherwise it rings out
-export const INSTRUMENTS = {
-  piano: { name: 'Piano', gm: 'acoustic_grand_piano' },
-  guitar: { name: 'Guitar', gm: 'acoustic_guitar_nylon' },
-  strings: { name: 'Strings', gm: 'string_ensemble_1', sustain: true },
-  violin: { name: 'Violin', gm: 'violin', sustain: true },
-  harp: { name: 'Harp', gm: 'orchestral_harp' },
-  flute: { name: 'Flute', gm: 'flute', sustain: true },
-  musicbox: { name: 'Music box', gm: 'music_box' },
-  marimba: { name: 'Marimba', gm: 'marimba' },
-  synth: { name: 'Synth', partials: [[1, 0.6, 'sawtooth'], [1.003, 0.6, 'sawtooth']], decay: 0.9, filter: true },
-};
-
-// recordings live in samples/ next to the page. the online copy is a backup
-const SAMPLE_BASE = 'samples/';
-const REMOTE_BASE = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/';
-const NOTE_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+// real recordings, one file per note. where an instrument skips notes, the nearest
+// recording is pitched up or down a little. sustain = it can hold a note (violin, flute)
+const SHARPS = ['C', 'Cs', 'D', 'Ds', 'E', 'F', 'Fs', 'G', 'Gs', 'A', 'As', 'B'];
+const FLATS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 const PRETTY = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
-const midiToHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
-const fileName = (m) => `${NOTE_NAMES[m % 12]}${Math.floor(m / 12) - 1}`;
+// versilian studios orchestra recordings (vsco 2) via nbrosowsky/tonejs-instruments
+const vsco = (dir, notes, extra = {}) => ({
+  dir: `samples/vsco/${dir}`,
+  remote: `https://nbrosowsky.github.io/tonejs-instruments/samples/${dir}`,
+  names: SHARPS,
+  notes,
+  ...extra,
+});
+
+export const INSTRUMENTS = {
+  piano: { name: 'Piano', ...vsco('piano', range(64, 86)) },
+  guitar: {
+    name: 'Guitar',
+    dir: 'samples/acoustic_guitar_nylon',
+    remote: 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_guitar_nylon-mp3',
+    names: FLATS,
+    notes: range(64, 86),
+  },
+  violin: { name: 'Violin', ...vsco('violin', [64, 67, 69, 72, 76, 79, 81, 84]), sustain: true },
+  flute: { name: 'Flute', ...vsco('flute', [64, 69, 72, 76, 81, 84]), sustain: true },
+  harp: { name: 'Harp', ...vsco('harp', [65, 69, 72, 76, 79, 83, 86]) },
+  xylophone: { name: 'Xylophone', ...vsco('xylophone', [67, 72, 79, 84]) },
+};
 
 export class Audio {
   constructor() {
@@ -75,28 +83,24 @@ export class Audio {
     return PRETTY[this.midi(symbol) % 12];
   }
 
-  url(m, inst = this.instrument) {
-    return `${SAMPLE_BASE}${INSTRUMENTS[inst].gm}/${fileName(m)}.mp3`;
+  // the closest recording to pitch m, and how much to speed it up or slow it down
+  sampleFor(m, inst = INSTRUMENTS[this.instrument]) {
+    const s = inst.notes.reduce((best, n) => (Math.abs(n - m) < Math.abs(best - m) ? n : best));
+    const file = `${inst.names[s % 12]}${Math.floor(s / 12) - 1}.mp3`;
+    return { url: `${inst.dir}/${file}`, remote: `${inst.remote}/${file}`, rate: Math.pow(2, (m - s) / 12) };
   }
 
-  fetchNote(u) {
+  fetchNote(u, remote) {
     const get = (x) => fetch(x).then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); });
-    const [, gm, file] = u.match(/([^/]+)\/([^/]+)$/);
-    return get(u).catch(() => get(`${REMOTE_BASE}${gm}-mp3/${file}`));
+    return get(u).catch(() => (remote ? get(remote) : Promise.reject(new Error('missing'))));
   }
 
   // fetch every note the current instrument + key needs. bends use the same file, pitched by playback rate
   load() {
     this.init();
-    const inst = INSTRUMENTS[this.instrument];
-    if (!inst?.gm) { this.onstatus?.('ready'); return (this.loading = Promise.resolve()); }
-    const urls = SYMBOLS.map((_, k) => this.url(this.midi(k + 1)));
-    for (const u of urls) {
-      if (!this.raw.has(u)) {
-        this.raw.set(u, this.fetchNote(u));
-        this.raw.get(u).catch(() => this.raw.delete(u));
-      }
-    }
+    const picks = SYMBOLS.map((_, k) => this.sampleFor(this.midi(k + 1)));
+    for (const p of picks) this.fetchOnce(p);
+    const urls = [...new Set(picks.map((p) => p.url))];
     if (urls.every((u) => this.buffers.has(u))) { this.onstatus?.('ready'); return (this.loading = Promise.resolve()); }
     this.onstatus?.('loading');
     const want = this.instrument + this.key;
@@ -107,12 +111,16 @@ export class Audio {
   }
 
   // turning raw bytes into sound needs the audio context, which only exists after the first tap
-  decode(u) {
-    if (this.buffers.has(u)) return Promise.resolve(this.buffers.get(u));
-    if (!this.raw.has(u)) {
-      this.raw.set(u, this.fetchNote(u));
-      this.raw.get(u).catch(() => this.raw.delete(u));
+  fetchOnce({ url, remote }) {
+    if (!this.raw.has(url)) {
+      this.raw.set(url, this.fetchNote(url, remote));
+      this.raw.get(url).catch(() => this.raw.delete(url));
     }
+  }
+
+  decode(u, remote) {
+    if (this.buffers.has(u)) return Promise.resolve(this.buffers.get(u));
+    this.fetchOnce({ url: u, remote });
     if (!this.decoding.has(u)) {
       const p = this.raw.get(u)
         .then((ab) => new Promise((res, rej) => this.ctx.decodeAudioData(ab.slice(0), res, rej)))
@@ -149,13 +157,14 @@ export class Audio {
       this.master = this.ctx.createGain();
       this.master.gain.value = this.muted ? 0 : this.volume;
       const comp = this.ctx.createDynamicsCompressor();
-      comp.threshold.value = -12;
-      comp.ratio.value = 3;
+      comp.threshold.value = -6;
+      comp.ratio.value = 2;
+      comp.attack.value = 0.01;
       this.dry = this.ctx.createGain();
       this.wet = this.ctx.createGain();
-      this.wet.gain.value = 0.16;
+      this.wet.gain.value = 0.06;
       const reverb = this.ctx.createConvolver();
-      reverb.buffer = this.makeImpulse(1.8);
+      reverb.buffer = this.makeImpulse(1.4);
       this.dry.connect(comp);
       this.wet.connect(reverb).connect(comp);
       comp.connect(this.master).connect(this.ctx.destination);
@@ -236,12 +245,13 @@ export class Audio {
     const { when = 0, beat = 0.34, gain = 0.6, sour = false, plain = false } = opts;
     const m = this.midi(symbol);
     const inst = INSTRUMENTS[this.instrument];
-    const buf = inst.gm ? this.buffers.get(this.url(m)) : null;
-    if (inst.gm && !buf) {
+    const pick = this.sampleFor(m);
+    const buf = this.buffers.get(pick.url);
+    if (!buf) {
       // the recording isn't ready yet: wait for it rather than play a different sound.
       // if it takes too long the moment has passed, so skip it
       const asked = performance.now();
-      this.decode(this.url(m)).then(() => {
+      this.decode(pick.url, pick.remote).then(() => {
         if (performance.now() - asked < 1500) this.play(symbol, { ...opts, when: Math.max(0, when - (performance.now() - asked) / 1000) });
       }).catch(() => {});
       return;
@@ -254,27 +264,28 @@ export class Audio {
       for (const c of copies) {
         const o = { ...n, detune: c.detune, wobble: sour };
         const g = gain * (sour ? 0.6 : 1);
-        if (buf) this.sample(buf, at, len, g, o, inst);
-        else this.synth(midiToHz(m), at, len, g * 0.8, o, inst);
+        this.sample(buf, pick.rate, at, len, g, o, inst);
       }
     }
   }
 
-  sample(buf, t, len, gain, { bend = 0, swell = false, detune = 0, wobble = false }, inst) {
+  // rate pitches the nearest recording to the exact note
+  sample(buf, rate, t, len, gain, { bend = 0, swell = false, detune = 0, wobble = false }, inst) {
     gain *= this.level.get(buf) ?? 1;
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
+    src.playbackRate.setValueAtTime(rate, t);
     src.detune.value = detune;
     if (bend) {
-      src.playbackRate.setValueAtTime(1, t + len * 0.35);
-      src.playbackRate.exponentialRampToValueAtTime(Math.pow(2, bend / 12), t + len * 0.35 + 0.12);
+      src.playbackRate.setValueAtTime(rate, t + len * 0.35);
+      src.playbackRate.exponentialRampToValueAtTime(rate * Math.pow(2, bend / 12), t + len * 0.35 + 0.12);
     }
     if (wobble) src.detune.linearRampToValueAtTime(detune - 70, t + Math.max(len, 0.3) + 0.2);
 
     const out = this.out();
     const g = out.gain;
     // ringing instruments keep their natural decay, held ones stop when the note ends
-    const ring = inst.sustain ? 0.3 : Math.min(1.8, Math.max(0.7, len * 2.5));
+    const ring = inst.sustain ? 0.35 : Math.min(2.4, Math.max(1, len * 3));
     const end = t + len + ring;
     if (swell && inst.sustain) {
       g.setValueAtTime(gain * 0.4, t);
@@ -287,51 +298,6 @@ export class Audio {
     src.connect(out);
     src.start(t);
     src.stop(end + 0.05);
-  }
-
-  synth(f, t, len, gain, { bend = 0, swell = false, detune = 0, wobble = false }, inst) {
-    const out = this.out();
-    let dest = out;
-    if (inst.filter) {
-      const lp = this.ctx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.Q.value = 4;
-      lp.frequency.setValueAtTime(f * 6, t);
-      lp.frequency.exponentialRampToValueAtTime(f * 1.5, t + len + 0.2);
-      lp.connect(out);
-      dest = lp;
-    }
-    const tail = Math.max(len, 0.12) + inst.decay * 0.5;
-    const end = t + tail + 0.1;
-    const g = out.gain;
-    g.setValueAtTime(0.0001, t);
-    if (swell) {
-      g.exponentialRampToValueAtTime(gain * 0.5, t + 0.08);
-      g.exponentialRampToValueAtTime(gain, t + len * 0.6);
-    } else {
-      g.exponentialRampToValueAtTime(gain, t + 0.004);
-      g.exponentialRampToValueAtTime(gain * 0.35, t + Math.min(len, 0.25));
-    }
-    g.exponentialRampToValueAtTime(0.0001, t + tail);
-
-    for (const [mult, amp, type] of inst.partials) {
-      const pg = this.ctx.createGain();
-      pg.gain.value = amp * 0.5;
-      pg.connect(dest);
-      const o = this.ctx.createOscillator();
-      o.type = type;
-      const fp = f * mult;
-      o.frequency.setValueAtTime(fp, t);
-      o.detune.setValueAtTime(detune, t);
-      if (wobble) o.detune.linearRampToValueAtTime(detune - 70, t + Math.max(len, 0.3) + 0.2);
-      if (bend) {
-        o.frequency.setValueAtTime(fp, t + len * 0.35);
-        o.frequency.exponentialRampToValueAtTime(fp * Math.pow(2, bend / 12), t + len * 0.35 + 0.12);
-      }
-      o.connect(pg);
-      o.start(t);
-      o.stop(end);
-    }
   }
 
   // E G B D F, the lines of the staff, one clean note each
