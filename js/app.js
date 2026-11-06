@@ -1,6 +1,6 @@
-import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=19';
-import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=19';
-import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=19';
+import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=20';
+import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=20';
+import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=20';
 
 const SAVE_KEY = 'musical-sudoku-v3';
 const $ = (id) => document.getElementById(id);
@@ -155,7 +155,7 @@ const jobs = new Map();
 function makePuzzle(n, difficulty) {
   if (!worker && typeof Worker !== 'undefined') {
     try {
-      worker = new Worker(new URL('./worker.js?v=19', import.meta.url), { type: 'module' });
+      worker = new Worker(new URL('./worker.js?v=20', import.meta.url), { type: 'module' });
       worker.onmessage = (e) => { jobs.get(e.data.id)?.(e.data.result); jobs.delete(e.data.id); };
       worker.onerror = () => { worker = false; };
     } catch { worker = false; }
@@ -164,7 +164,7 @@ function makePuzzle(n, difficulty) {
     const id = ++jobId;
     return new Promise((res) => { jobs.set(id, res); worker.postMessage({ id, n, difficulty }); });
   }
-  return import('./generator.js?v=19').then((m) => m.generate(n, difficulty));
+  return import('./generator.js?v=20').then((m) => m.generate(n, difficulty));
 }
 
 async function newGame() {
@@ -656,8 +656,8 @@ function select(i, audition) {
   if (game.won || busy) return;
   if (selected !== i && game.difficulty !== 'tutorial' && hint?.cell !== i) hideCoach();
   selected = i;
-  // every tap makes a sound: the symbol if there is one, a soft tick if empty
-  if (audition) game.grid[i] ? sound(game.grid[i]) : audio.unlock() || audio.tick();
+  // a square with a symbol plays it. an empty one stays silent, like a key that isn't there
+  if (audition && game.grid[i]) sound(game.grid[i]);
   render();
 }
 
