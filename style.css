@@ -369,7 +369,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   font-size: 0.92rem;
   cursor: pointer;
 }
-.switch input {
+.row input[type="checkbox"] {
   appearance: none;
   flex: none;
   width: 44px;
@@ -381,7 +381,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   transition: background 0.15s;
   margin: 0;
 }
-.switch input::after {
+.row input[type="checkbox"]::after {
   content: "";
   position: absolute;
   top: 3px;
@@ -392,8 +392,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   background: var(--tile);
   transition: transform 0.15s;
 }
-.switch input:checked { background: var(--ink); }
-.switch input:checked::after { transform: translateX(18px); }
+.row input[type="checkbox"]:checked { background: var(--ink); }
+.row input[type="checkbox"]:checked::after { transform: translateX(18px); }
 
 .legend {
   display: grid;
@@ -533,3 +533,73 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .coach.bad[data-side="above"]::before { border-top-color: var(--wrong); }
 .coach[data-side="none"]::before { display: none; }
 .tutorial-btn { margin-top: 8px; }
+
+/* settings: grouped list like a phone's settings screen */
+.sheet { padding: 16px 16px 20px; }
+.sheet-head { margin-bottom: 4px; }
+.text-btn {
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  font-weight: 700;
+  font-size: 1rem;
+}
+.list-label {
+  margin: 18px 4px 6px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+.list {
+  background: var(--tile);
+  border: 1px solid var(--tile-edge);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 14px;
+  font-size: 0.95rem;
+}
+.row + .row { border-top: 1px solid var(--tile-edge); }
+label.row { cursor: pointer; }
+.row .seg { flex: 0 1 230px; padding: 3px; }
+.row .seg button { padding: 6px 4px; font-size: 0.85rem; }
+.row input[type="range"] { flex: 0 1 200px; accent-color: var(--ink); }
+.picker { position: relative; display: flex; align-items: center; color: var(--ink-soft); }
+.picker select {
+  appearance: none;
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--ink-soft);
+  padding: 4px 22px 4px 4px;
+  text-align: right;
+  cursor: pointer;
+}
+.picker svg { position: absolute; right: 0; width: 16px; height: 16px; pointer-events: none; }
+.list-note { margin: 6px 4px 0; font-size: 0.8rem; color: var(--ink-soft); }
+.list-note:empty { display: none; }
+.list-note.center { text-align: center; margin-bottom: 4px; }
+
+/* how to play */
+#help > p:first-of-type { margin-top: 4px; }
+.legend small { font-size: 0.7rem; }
+.link-btn {
+  display: block;
+  margin: 4px auto 0;
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  font-size: 0.85rem;
+}
+.link-btn[hidden] { display: none; }
+
+/* four tools instead of five */
+.tools { grid-template-columns: repeat(4, 1fr); }

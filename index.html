@@ -10,19 +10,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Noto+Music&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
-    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor"/></symbol>
-    <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></g></symbol>
+    <symbol id="i-replay" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5v5h-5"/><path d="M19.4 14.5A7.5 7.5 0 1 1 18 7.3L20 10"/></g></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></g></symbol>
     <symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9.2 9.2a2.9 2.9 0 1 1 4.3 2.5c-.9.5-1.5 1.1-1.5 2.1v.5"/><circle cx="12" cy="17.6" r=".6" fill="currentColor"/></g></symbol>
     <symbol id="i-pencil" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4.5 19.5l1-4.2L15.8 5a1.8 1.8 0 0 1 2.5 0l.7.7a1.8 1.8 0 0 1 0 2.5L8.7 18.5z"/><path d="M14 6.8l3.2 3.2"/></g></symbol>
     <symbol id="i-undo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 6.5L4.5 10.5l4 4"/><path d="M4.5 10.5h9a5.5 5.5 0 0 1 0 11H10"/></g></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.8 12.2c.1.8.7 1.3 1.5 1.3h6.4c.8 0 1.4-.5 1.5-1.3L17.5 7"/><path d="M10.2 10.5v6.5M13.8 10.5v6.5"/></g></symbol>
-    <symbol id="i-ear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 9.5a5 5 0 1 1 10 0c0 3-2.5 3.7-3 6.5-.4 2.2-1.9 3.5-3.7 3.5A3.3 3.3 0 0 1 7 16.3"/><path d="M10 9.8a2 2 0 1 1 3.3 1.6"/></g></symbol>
     <symbol id="i-bulb" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17.5h6M10 20.5h4M12 3.5a5.5 5.5 0 0 0-3.2 10c.7.5 1.2 1.3 1.2 2.2v.3h4v-.3c0-.9.5-1.7 1.2-2.2A5.5 5.5 0 0 0 12 3.5z"/></g></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
   </svg>
 
@@ -33,7 +32,7 @@
         <h1>Musical Sudoku</h1>
       </div>
       <div class="top-actions">
-        <button class="icon-btn" id="playBtn" aria-label="Play the board" title="Play the board (Space)"><svg><use href="#i-play"/></svg></button>
+        <button class="icon-btn" id="replayBtn" aria-label="New puzzle" title="New puzzle"><svg><use href="#i-replay"/></svg></button>
         <button class="icon-btn" id="settingsBtn" aria-label="Settings" title="Settings"><svg><use href="#i-gear"/></svg></button>
         <button class="icon-btn" id="helpBtn" aria-label="How to play" title="How to play"><svg><use href="#i-help"/></svg></button>
       </div>
@@ -57,10 +56,9 @@
         <div id="controls">
           <div id="pad" class="pad" aria-label="Symbols"></div>
           <div class="tools">
-            <button class="tool" id="pencilBtn" aria-pressed="false"><svg><use href="#i-pencil"/></svg><span>Notes</span></button>
             <button class="tool" id="undoBtn"><svg><use href="#i-undo"/></svg><span>Undo</span></button>
             <button class="tool" id="eraseBtn"><svg><use href="#i-trash"/></svg><span>Erase</span></button>
-            <button class="tool" id="listenBtn" title="Hear the right symbol without seeing it"><svg><use href="#i-ear"/></svg><span>Listen</span></button>
+            <button class="tool" id="pencilBtn" aria-pressed="false"><svg><use href="#i-pencil"/></svg><span>Notes</span></button>
             <button class="tool" id="hintBtn"><svg><use href="#i-bulb"/></svg><span>Hint</span></button>
           </div>
         </div>
@@ -69,7 +67,7 @@
           <p class="win-title">Solved</p>
           <p id="winStats" class="win-stats"></p>
           <button class="btn" id="winPlay">Hear it again</button>
-          <button class="btn primary" id="winNew">New game</button>
+          <button class="btn primary" id="winNew">New puzzle</button>
         </div>
       </aside>
     </main>
@@ -85,110 +83,60 @@
   <dialog id="settings" class="sheet" aria-labelledby="settingsTitle">
     <div class="sheet-head">
       <h2 id="settingsTitle">Settings</h2>
-      <button class="icon-btn" data-close aria-label="Close"><svg><use href="#i-close"/></svg></button>
+      <button class="text-btn" data-close>Done</button>
     </div>
 
-    <section class="group">
-      <h3>Game</h3>
-      <div class="field">
-        <span class="field-label">Grid size</span>
-        <div class="seg" data-setting="grid">
-          <button data-value="4">4 × 4</button>
-          <button data-value="6">6 × 6</button>
-          <button data-value="9">9 × 9</button>
-        </div>
-      </div>
-      <div class="field">
-        <span class="field-label">Level</span>
+    <p class="list-label">Game</p>
+    <div class="list">
+      <div class="row">
+        <span>Level</span>
         <div class="seg" data-setting="difficulty">
-          <button data-value="learn">Learn</button>
           <button data-value="easy">Easy</button>
           <button data-value="medium">Medium</button>
           <button data-value="hard">Hard</button>
         </div>
       </div>
-      <p class="note" id="levelInfo"></p>
-      <p class="note" id="gameNote" hidden>This starts when you begin a new game.</p>
-      <button class="btn primary wide" id="newBtn">Start a new game</button>
-      <button class="btn wide" data-tutorial>Play the tutorial</button>
-    </section>
-
-    <section class="group">
-      <h3>Sound</h3>
-      <div class="field">
-        <span class="field-label">Instrument</span>
-        <div class="seg wrap" data-setting="instrument"></div>
-      </div>
-      <p class="note" id="soundStatus" aria-live="polite"></p>
-      <div class="field">
-        <span class="field-label">Try them</span>
-        <div class="try" id="tryPad"></div>
-      </div>
-      <div class="field">
-        <span class="field-label">Key</span>
-        <div class="seg" data-setting="key"></div>
-      </div>
-      <label class="field slider">
-        <span class="field-label">Volume</span>
-        <input type="range" id="volume" min="0" max="100">
-      </label>
-      <label class="field slider">
-        <span class="field-label">Tempo</span>
-        <input type="range" id="tempo" min="60" max="200">
-      </label>
-    </section>
-
-    <section class="group">
-      <h3>Look</h3>
-      <div class="field">
-        <span class="field-label">Theme</span>
-        <div class="seg" data-setting="theme">
-          <button data-value="auto">Auto</button>
-          <button data-value="paper">Paper</button>
-          <button data-value="ink">Ink</button>
+      <div class="row">
+        <span>Grid</span>
+        <div class="seg" data-setting="grid">
+          <button data-value="4">4×4</button>
+          <button data-value="6">6×6</button>
+          <button data-value="9">9×9</button>
         </div>
       </div>
-      <div class="field">
-        <span class="field-label">Symbol size</span>
-        <div class="seg" data-setting="size">
-          <button data-value="s">S</button>
-          <button data-value="m">M</button>
-          <button data-value="l">L</button>
-        </div>
-      </div>
-    </section>
+    </div>
 
-    <section class="group">
-      <h3>Help while playing</h3>
-      <label class="switch"><span>Highlight matching symbols</span><input type="checkbox" data-toggle="matching"></label>
-      <label class="switch"><span>Play finished rows, columns and boxes</span><input type="checkbox" data-toggle="celebrate"></label>
-      <label class="switch"><span>Show timer</span><input type="checkbox" data-toggle="timer"></label>
-      <label class="switch"><span>Sound on</span><input type="checkbox" data-toggle="sound"></label>
-    </section>
+    <p class="list-label">Sound</p>
+    <div class="list">
+      <label class="row"><span>Sound</span><input type="checkbox" data-toggle="sound"></label>
+      <label class="row">
+        <span>Instrument</span>
+        <span class="picker"><select id="instrument"></select><svg><use href="#i-chevron"/></svg></span>
+      </label>
+      <label class="row"><span>Volume</span><input type="range" id="volume" min="0" max="100"></label>
+    </div>
+    <p class="list-note" id="soundStatus" aria-live="polite"></p>
+
+    <p class="list-label">Display</p>
+    <div class="list">
+      <label class="row"><span>Dark mode</span><input type="checkbox" data-toggle="dark"></label>
+      <label class="row"><span>Timer</span><input type="checkbox" data-toggle="timer"></label>
+    </div>
   </dialog>
 
   <dialog id="help" class="sheet" aria-labelledby="helpTitle">
     <div class="sheet-head">
       <h2 id="helpTitle">How to play</h2>
-      <button class="icon-btn" data-close aria-label="Close"><svg><use href="#i-close"/></svg></button>
+      <button class="text-btn" data-close>Done</button>
     </div>
-    <p>It's sudoku with nine music symbols instead of numbers. Each row, column and 3×3 box needs every symbol once.</p>
-    <p>Each symbol is a real note on the treble staff. The lines are E G B D F ("every good boy does fine") and the spaces are F A C E. Tap one to hear it:</p>
+    <p>Fill the grid so every row, column and box has each symbol once. Every symbol is a real note. Tap one to hear it.</p>
     <div id="legend" class="legend"></div>
-    <ul class="tips">
-      <li><b>Play</b> (top right) plays the whole board, row by row. Empty squares are silent.</li>
-      <li><b>Listen</b> plays the right symbol for the selected square without showing it.</li>
-      <li><b>Notes</b> lets you pencil in small options.</li>
-      <li><b>Hint</b> points at the next square and explains why. Press it again to fill it in.</li>
-      <li><b>Learn</b> mode greys out symbols that can't fit and explains every move. <b>Hard</b> only flags mistakes that break a rule.</li>
-    </ul>
-    <p class="keys">Change the instrument, key and grid size in Settings (the gear).</p>
-    <p class="keys">Keyboard: 1–9 place · arrows move · Backspace erase · N notes · L listen · Space play · Ctrl+Z undo</p>
-    <button class="btn primary wide" data-close>Let's play</button>
-    <button class="btn wide tutorial-btn" data-tutorial>Play the tutorial</button>
-    <p class="credit">Instrument sounds: FluidR3 GM soundfont, via gleitz/midi-js-soundfonts.</p>
+    <button class="btn primary wide" id="learnBtn">Start Learn mode</button>
+    <p class="list-note center">A quick walkthrough, then puzzles that explain every move.</p>
+    <button class="link-btn" id="walkthroughBtn" hidden>Replay the walkthrough</button>
+    <p class="credit">Sounds: FluidR3 GM soundfont (CC BY 3.0)</p>
   </dialog>
 
-  <script type="module" src="js/app.js?v=10"></script>
+  <script type="module" src="js/app.js?v=12"></script>
 </body>
 </html>

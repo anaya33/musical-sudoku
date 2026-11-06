@@ -1,6 +1,6 @@
-import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=10';
-import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=10';
-import { Audio, SYMBOLS, INSTRUMENTS, KEYS } from './audio.js?v=10';
+import { geometry, candidateMask, candidates, conflicts, isSolved, popcount } from './sudoku.js?v=12';
+import { nextPlacement, TECHNIQUES } from './solvers/logic.js?v=12';
+import { Audio, SYMBOLS, INSTRUMENTS } from './audio.js?v=12';
 
 const SAVE_KEY = 'musical-sudoku-v3';
 const $ = (id) => document.getElementById(id);
@@ -23,7 +23,7 @@ const MODES = {
     info: 'Needs pairs and pointing tricks. Wrong symbols turn red.' },
   hard: { name: 'Hard', flag: 'rules',
     info: 'Needs advanced logic like X-wings. Mistakes only show when they break a rule.' },
-  tutorial: { name: 'Tutorial', dim: true, flag: 'solution', info: '' },
+  tutorial: { name: 'Learn', dim: true, flag: 'solution', info: '' },
 };
 const mode = () => MODES[game.difficulty] ?? MODES.easy;
 
@@ -57,13 +57,13 @@ const settings = {
   key: 'C',
   volume: 70,
   tempo: 120,
-  theme: 'paper',
-  size: 'm',
-  matching: true,
-  celebrate: true,
+  dark: false,
   timer: true,
   sound: true,
+  walkthrough: false, // seen the Learn walkthrough already
 };
+const MATCHING = true; // highlight every copy of the selected symbol
+const CELEBRATE = true; // play finished rows, columns and boxes
 
 let game = null; // { n, difficulty, puzzle, solution, grid, marks, mistakes, hints, elapsed, won, techniques }
 let geo = null;
@@ -145,23 +145,11 @@ SYMBOLS.forEach((s, k) => {
   item.addEventListener('pointerdown', () => audio.play(k + 1));
   $('legend').appendChild(item);
 });
-// the try-it row in settings: tap each symbol to hear the current instrument
-SYMBOLS.forEach((s, k) => {
-  const b = document.createElement('button');
-  b.dataset.id = k + 1;
-  b.setAttribute('aria-label', s.name);
-  b.addEventListener('pointerdown', (e) => { e.preventDefault(); audio.play(k + 1); });
-  $('tryPad').appendChild(b);
-});
 
 function drawLegend() {
   for (const item of $('legend').children) {
     const id = Number(item.dataset.id), s = SYMBOLS[id - 1];
-    item.innerHTML = `${glyph(id)}<b>${s.name}</b><small>${audio.noteName(id)} · ${s.place}<br>${s.how}</small>`;
-  }
-  for (const b of $('tryPad').children) {
-    const id = Number(b.dataset.id);
-    b.innerHTML = `${glyph(id)}<small>${audio.noteName(id)}</small>`;
+    item.innerHTML = `${glyph(id)}<b>${s.name}</b><small>${audio.noteName(id)}</small>`;
   }
 }
 
@@ -174,10 +162,7 @@ audio.onstatus = (state) => {
   }[state];
 };
 
-const instSeg = document.querySelector('[data-setting="instrument"]');
-for (const [k, inst] of Object.entries(INSTRUMENTS)) instSeg.insertAdjacentHTML('beforeend', `<button data-value="${k}">${inst.name}</button>`);
-const keySeg = document.querySelector('[data-setting="key"]');
-for (const k of Object.keys(KEYS)) keySeg.insertAdjacentHTML('beforeend', `<button data-value="${k}">${k.replace('b', '♭')}</button>`);
+for (const [k, inst] of Object.entries(INSTRUMENTS)) $('instrument').add(new Option(inst.name, k));
 
 // ---------- making puzzles ----------
 
@@ -187,7 +172,7 @@ const jobs = new Map();
 function makePuzzle(n, difficulty) {
   if (!worker && typeof Worker !== 'undefined') {
     try {
-      worker = new Worker(new URL('./worker.js?v=10', import.meta.url), { type: 'module' });
+      worker = new Worker(new URL('./worker.js?v=12', import.meta.url), { type: 'module' });
       worker.onmessage = (e) => { jobs.get(e.data.id)?.(e.data.result); jobs.delete(e.data.id); };
       worker.onerror = () => { worker = false; };
     } catch { worker = false; }
@@ -196,7 +181,7 @@ function makePuzzle(n, difficulty) {
     const id = ++jobId;
     return new Promise((res) => { jobs.set(id, res); worker.postMessage({ id, n, difficulty }); });
   }
-  return import('./generator.js?v=10').then((m) => m.generate(n, difficulty));
+  return import('./generator.js?v=12').then((m) => m.generate(n, difficulty));
 }
 
 async function newGame() {
@@ -225,7 +210,6 @@ function start({ n, difficulty, puzzle, solution, techniques = [] }) {
   selected = -1;
   pencil = false;
   hint = null;
-  $('gameNote').hidden = true;
   build();
   save();
   render();
@@ -322,7 +306,7 @@ function place(i, v, { fromHint = false } = {}) {
     hideCoach();
     clearSay();
     if (mode().explain && !fromHint) explainRight(i, v, before);
-    if (settings.celebrate) celebrateGroups(i);
+    if (CELEBRATE) celebrateGroups(i);
   }
   if (game.difficulty === 'tutorial') tutorialMoved(i, v, wrong);
   checkWin();
@@ -338,13 +322,6 @@ function erase() {
   hideCoach();
   save();
   render();
-}
-
-function listen() {
-  if (game.won) return;
-  if (selected < 0 || isGiven(selected)) { say('Pick an empty square to hear what goes there.'); return; }
-  sound(game.solution[selected]);
-  say('Listen, then find the symbol that sounds like that.');
 }
 
 // ---------- explanations ----------
@@ -436,6 +413,7 @@ function giveHint() {
   selected = cell;
   render();
   showCoach(cells[cell], `${text} Press Hint again to fill it in.`, { cells: marked });
+  sound(value);
 }
 
 // ---------- finishing ----------
@@ -456,7 +434,7 @@ function checkWin() {
   hint = null;
   save();
   render();
-  setTimeout(playBoard, 600);
+  if (game.difficulty !== 'tutorial') setTimeout(playBoard, 600);
 }
 
 // ---------- playback ----------
@@ -479,24 +457,16 @@ function perform(list, { step = beatMs(), start = 0, rowGap = 0 } = {}) {
   return t;
 }
 
-function setPlayIcon(playing) {
-  $('playBtn').setAttribute('aria-pressed', String(playing));
-  $('playBtn').innerHTML = `<svg><use href="#i-${playing ? 'stop' : 'play'}"/></svg>`;
-}
-
 function stopPlayback() {
   playTimers.forEach(clearTimeout);
   playTimers = [];
   cells.forEach((el) => el.classList.remove('playing'));
-  setPlayIcon(false);
 }
 
 function playBoard() {
   if (playTimers.length) { stopPlayback(); return; }
   const end = perform([...Array(geo.total).keys()], { rowGap: 1 });
-  setPlayIcon(true);
   playTimers.push(setTimeout(stopPlayback, end + 200));
-  if (game.difficulty === 'tutorial') tutorialPlayed();
 }
 
 // ---------- coach: the speech bubble with an arrow ----------
@@ -577,11 +547,10 @@ const TUTORIAL_STEPS = [
   { text: 'Columns work the same way. What is missing from this column? Tap the square and choose it.', target: () => cells[8], cells: [0, 4, 12], wait: 8 },
   { text: 'And boxes too. This box has three symbols already. Fill in the last one.', target: () => cells[5], cells: [0, 1, 4], wait: 5 },
   { text: 'If a symbol doesn\'t fit, it turns red and plays out of tune. Undo takes it back.', target: () => $('undoBtn'), next: true },
-  { text: 'Not sure yet? Notes lets you pencil in small options. Listen plays the right note without showing it.', target: () => $('pencilBtn'), next: true },
-  { text: 'Stuck? Hint points at the next square and tells you why it works.', target: () => $('hintBtn'), next: true },
+  { text: 'Not sure yet? Notes lets you pencil in small options.', target: () => $('pencilBtn'), next: true },
+  { text: 'Stuck? Hint points at the next square, plays its note and tells you why it works.', target: () => $('hintBtn'), next: true },
   { text: 'Now finish the board on your own. Every row, column and box needs all four.', target: () => null, solve: true, timeout: 5000 },
-  { text: 'You solved it! Press play to hear your puzzle as music.', target: () => $('playBtn'), play: true },
-  { text: 'That\'s it. Learn mode is next: it greys out symbols that can\'t fit and explains every move.', target: () => null, finish: true },
+  { text: 'You solved it! Every finished board plays back as music. From here on, symbols that can\'t fit are greyed out and an arrow explains each move.', target: () => null, finish: true },
 ];
 
 function startTutorial() {
@@ -598,7 +567,7 @@ function showTutorialStep(k) {
   if (!s) return;
   const opts = { cells: s.cells ?? [], timeout: s.timeout ?? 0 };
   if (s.next) Object.assign(opts, { action: 'Next', onAction: () => showTutorialStep(k + 1) });
-  if (s.finish) Object.assign(opts, { action: 'Start Learn mode', onAction: finishTutorial });
+  if (s.finish) Object.assign(opts, { action: 'Start a Learn puzzle', onAction: finishTutorial });
   showCoach(s.target(), s.text, opts);
 }
 
@@ -607,16 +576,22 @@ function tutorialMoved(i, v, wrong) {
   if (!s) return;
   if (s.wait === i && !wrong) setTimeout(() => showTutorialStep(tutorialStep + 1), 900);
   else if (s.wait !== undefined && !wrong) setTimeout(() => showTutorialStep(tutorialStep), 1200);
-  if (s.solve && solved()) setTimeout(() => showTutorialStep(tutorialStep + 1), 400);
+  if (s.solve && solved()) setTimeout(() => { playBoard(); showTutorialStep(tutorialStep + 1); }, 400);
 }
 
-function tutorialPlayed() {
-  const s = TUTORIAL_STEPS[tutorialStep];
-  if (s?.play) setTimeout(() => showTutorialStep(tutorialStep + 1), 2500);
-}
 
 function finishTutorial() {
   hideCoach();
+  settings.walkthrough = true;
+  settings.difficulty = 'learn';
+  applySettings();
+  newGame();
+}
+
+// Learn mode: the walkthrough the first time, puzzles that explain every move after that
+function startLearn() {
+  $('help').close();
+  if (!settings.walkthrough) { startTutorial(); return; }
   settings.difficulty = 'learn';
   applySettings();
   newGame();
@@ -699,7 +674,7 @@ function render() {
       el.setAttribute('aria-label', 'empty');
     }
     if (i === selected) el.classList.add('selected');
-    else if (settings.matching && selV && v === selV) el.classList.add('match');
+    else if (MATCHING && selV && v === selV) el.classList.add('match');
     else if (selPeers.has(i)) el.classList.add('peer');
   }
 
@@ -724,7 +699,7 @@ function render() {
     const tricks = game.techniques.length ? ` · used: ${game.techniques.map(techniqueName).join(', ')}` : '';
     $('winStats').textContent = `${fmt(game.elapsed)} · ${game.mistakes} mistakes · ${game.hints} hints${tricks}`;
   }
-  $('levelLabel').textContent = game.difficulty === 'tutorial' ? 'Tutorial' : `${n}×${n} · ${m.name}`;
+  $('levelLabel').textContent = game.difficulty === 'tutorial' ? 'Learn · walkthrough' : `${n}×${n} · ${m.name}`;
   $('mistakes').textContent = `${game.mistakes} mistake${game.mistakes === 1 ? '' : 's'}`;
   $('timer').textContent = fmt(game.elapsed);
   if (!sayTimer) $('hintLine').textContent = defaultLine();
@@ -745,6 +720,7 @@ setInterval(() => {
 function applySettings() {
   if (!INSTRUMENTS[settings.instrument]) settings.instrument = 'piano';
   if (!MODES[settings.difficulty] || settings.difficulty === 'tutorial') settings.difficulty = 'easy';
+  if (settings.theme) { settings.dark = settings.theme === 'ink'; delete settings.theme; }
   if (audio.instrument !== settings.instrument || audio.key !== settings.key) {
     audio.instrument = settings.instrument;
     audio.key = settings.key;
@@ -753,15 +729,15 @@ function applySettings() {
   }
   audio.setVolume(settings.volume / 100);
   audio.setMuted(!settings.sound);
-  document.documentElement.dataset.theme = settings.theme;
-  document.documentElement.dataset.size = settings.size;
+  document.documentElement.dataset.theme = settings.dark ? 'ink' : 'paper';
+  document.documentElement.dataset.size = 'm';
+  $('instrument').value = settings.instrument;
+  $('walkthroughBtn').hidden = !settings.walkthrough;
   document.querySelectorAll('.seg').forEach((seg) => {
     for (const b of seg.children) b.setAttribute('aria-pressed', String(b.dataset.value === settings[seg.dataset.setting]));
   });
   document.querySelectorAll('[data-toggle]').forEach((t) => { t.checked = settings[t.dataset.toggle]; });
   $('volume').value = settings.volume;
-  $('tempo').value = settings.tempo;
-  $('levelInfo').textContent = MODES[settings.difficulty].info;
 }
 
 function changed() {
@@ -777,36 +753,45 @@ document.querySelectorAll('.seg').forEach((seg) => {
     const key = seg.dataset.setting;
     settings[key] = b.dataset.value;
     changed();
-    if (key === 'instrument' || key === 'key') audio.preview();
-    // a new size or level starts right away unless you're mid-game
-    if (key === 'grid' || key === 'difficulty') {
-      const differs = Number(settings.grid) !== game.n || settings.difficulty !== game.difficulty;
-      if (differs && (!hasProgress() || game.won || game.difficulty === 'tutorial')) newGame();
-      else $('gameNote').hidden = !differs;
-    }
+    // a new size or level starts a fresh puzzle
+    const differs = Number(settings.grid) !== game.n || settings.difficulty !== game.difficulty;
+    if (differs) newGame();
   });
 });
 document.querySelectorAll('[data-toggle]').forEach((t) => {
   t.addEventListener('change', () => { settings[t.dataset.toggle] = t.checked; changed(); });
 });
+$('instrument').addEventListener('change', (e) => { settings.instrument = e.target.value; changed(); audio.preview(); });
 $('volume').addEventListener('input', (e) => { settings.volume = Number(e.target.value); changed(); });
 $('volume').addEventListener('change', () => audio.play(4));
-$('tempo').addEventListener('input', (e) => { settings.tempo = Number(e.target.value); changed(); });
 
 // ---------- controls ----------
 
-$('newBtn').addEventListener('click', () => { $('settings').close(); newGame(); });
+// replay = a new puzzle. if you're partway through, check first
+$('replayBtn').addEventListener('click', () => {
+  if (game && hasProgress() && !game.won && game.difficulty !== 'tutorial') {
+    showCoach($('replayBtn'), 'Start a new puzzle? This one will be cleared.', { action: 'New puzzle', onAction: newGame, timeout: 6000 });
+  } else {
+    newGame();
+  }
+});
 $('winNew').addEventListener('click', newGame);
 $('winPlay').addEventListener('click', () => { stopPlayback(); playBoard(); });
 $('pencilBtn').addEventListener('click', () => { pencil = !pencil; render(); });
 $('eraseBtn').addEventListener('click', erase);
 $('undoBtn').addEventListener('click', undo);
 $('hintBtn').addEventListener('click', giveHint);
-$('listenBtn').addEventListener('click', listen);
-$('playBtn').addEventListener('click', () => { audio.unlock(); playBoard(); });
 $('settingsBtn').addEventListener('click', () => $('settings').showModal());
 $('helpBtn').addEventListener('click', () => $('help').showModal());
-document.querySelectorAll('[data-tutorial]').forEach((b) => b.addEventListener('click', startTutorial));
+$('learnBtn').addEventListener('click', startLearn);
+$('walkthroughBtn').addEventListener('click', startTutorial);
+
+// tapping anywhere else closes a bubble that's asking something (not during the walkthrough)
+document.addEventListener('pointerdown', (e) => {
+  if ($('coach').hidden || game?.difficulty === 'tutorial') return;
+  if (e.target.closest('#coach, #hintBtn, #replayBtn, .key')) return;
+  if (!$('coach').querySelector('button').hidden) hideCoach();
+});
 
 // close sheets with their buttons or by tapping the backdrop
 document.querySelectorAll('dialog').forEach((d) => {
@@ -828,7 +813,6 @@ document.addEventListener('keydown', (e) => {
   if (/^[1-9]$/.test(k) && Number(k) <= game.n) { input(Number(k)); flashKey(Number(k)); return; }
   if (k === 'Backspace' || k === 'Delete' || k === '0') { erase(); return; }
   if (k === 'n' || k === 'N' || k === 'p' || k === 'P') { pencil = !pencil; render(); return; }
-  if (k === 'l' || k === 'L') { listen(); return; }
   if (k === 'h' || k === 'H') { giveHint(); return; }
   if (k === ' ') { e.preventDefault(); playBoard(); return; }
   if (k === 'Escape') { selected = -1; hideCoach(); render(); return; }
@@ -850,7 +834,7 @@ if (saved?.settings) Object.assign(settings, saved.settings);
 applySettings();
 audio.load(); // start fetching the instrument right away so the first tap has real sound
 if (!saved) {
-  startTutorial();
+  newGame();
 } else if (saved.game?.n && saved.game.grid?.length === saved.game.n ** 2) {
   game = { techniques: [], ...saved.game };
   build();

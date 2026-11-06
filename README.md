@@ -17,14 +17,14 @@ Each symbol is a real note on the treble staff (lines E G B D F, spaces F A C E)
 | fermata | E, top space | holds |
 
 - tap any square to hear it; a wrong symbol turns red, shakes and plays out of tune
-- the play button plays the whole board; finished rows, columns and boxes play back
-- Hint points at the next square and says why it works (press again to fill it in); Listen plays the right note without showing it
-- settings: grid size, level, instrument (piano, guitar, strings, violin, harp, flute, music box, marimba, synth), a row to try every note, key, volume, tempo, paper or ink theme, symbol size, help toggles
+- finished rows, columns, boxes and boards play back as music
+- top bar: new puzzle, settings, how to play
+- tools: undo, erase, notes, hint (points at the next square, plays its note and says why; press again to fill it in)
+- settings: level, grid size, sound, instrument, volume, dark mode, timer
 
 ## Levels
 
-- **Tutorial**: a guided 4×4 walkthrough (starts the first time you open the game)
-- **Learn**: lots of starting symbols, impossible symbols greyed out, an arrow explains every move
+- **Learn** (from the ? button): a short walkthrough the first time, then puzzles where impossible symbols are greyed out and an arrow explains every move
 - **Easy**: only needs singles. Wrong symbols turn red
 - **Medium**: needs pairs, pointing pairs or box/line reduction. Wrong symbols turn red
 - **Hard**: needs hidden pairs, triples or X-wings. Mistakes only show when they break a rule
